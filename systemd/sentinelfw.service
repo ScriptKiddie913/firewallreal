@@ -1,0 +1,14 @@
+[Unit]
+Description=SentinelFW host firewall and threat response
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+WorkingDirectory=/opt/sentinelfw
+ExecStart=/usr/bin/python3 /opt/sentinelfw/sfwctl.py run
+Restart=always
+RestartSec=2
+StartLimitIntervalSec=0
+
+[Install]
+WantedBy=multi-user.target

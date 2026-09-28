@@ -1,0 +1,42 @@
+# Containerlab 3-Zone Topology for SentinelGate Testing
+# WAN (Tester / Traffic Gen) <---> SentinelGate <---> LAN (Protected Target)
+
+name: sentinelgate-lab
+
+topology:
+  nodes:
+    # 1. External WAN Tester / Attacker Node
+    wan-tester:
+      kind: linux
+      image: ghcr.io/hellt/network-multitool
+      mgmt-ipv4: 172.20.20.10
+      exec:
+        - ip addr add 198.51.100.10/24 dev eth1
+        - ip route add 192.168.10.0/24 via 198.51.100.1
+
+    # 2. SentinelGate NGFW Appliance Node
+    sentinelgate:
+      kind: linux
+      image: ubuntu:22.04
+      mgmt-ipv4: 172.20.20.20
+      binds:
+        - ../../:/opt/sentinelgate:rw
+      exec:
+        - sysctl -w net.ipv4.ip_forward=1
+        - ip addr add 198.51.100.1/24 dev eth1
+        - ip addr add 192.168.10.1/24 dev eth2
+        - ip link set eth1 up
+        - ip link set eth2 up
+
+    # 3. Protected LAN Node
+    lan-client:
+      kind: linux
+      image: ghcr.io/hellt/network-multitool
+      mgmt-ipv4: 172.20.20.30
+      exec:
+        - ip addr add 192.168.10.50/24 dev eth1
+        - ip route add default via 192.168.10.1
+
+  links:
+    - endpoints: ["wan-tester:eth1", "sentinelgate:eth1"]
+    - endpoints: ["sentinelgate:eth2", "lan-client:eth1"]

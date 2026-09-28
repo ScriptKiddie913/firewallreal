@@ -1,0 +1,935 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SentinelFW 3.0 — Defense Console</title>
+  <link rel="stylesheet" href="/style.css">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://unpkg.com/maplibre-gl@5.6.0/dist/maplibre-gl.css" rel="stylesheet" />
+  <script src="https://unpkg.com/maplibre-gl@5.6.0/dist/maplibre-gl.js"></script>
+  <script src="/geo.js"></script>
+</head>
+<body>
+  <!-- Embedded SVG Icons -->
+  <svg style="display:none;">
+    <defs>
+      <g id="icon-shield"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></g>
+      <g id="icon-matrix"><rect x="3" y="3" width="7" height="7" fill="none" stroke="currentColor" stroke-width="2"/><rect x="14" y="3" width="7" height="7" fill="none" stroke="currentColor" stroke-width="2"/><rect x="14" y="14" width="7" height="7" fill="none" stroke="currentColor" stroke-width="2"/><rect x="3" y="14" width="7" height="7" fill="none" stroke="currentColor" stroke-width="2"/></g>
+      <g id="icon-network"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2"/><line x1="2" y1="12" x2="22" y2="12" stroke="currentColor" stroke-width="2"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" fill="none" stroke="currentColor" stroke-width="2"/></g>
+      <g id="icon-packets"><path d="M2 6l10-4 10 4-10 4-10-4z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M2 12l10 4 10-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/><path d="M2 18l10 4 10-4" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/></g>
+      <g id="icon-globe"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2"/><ellipse cx="12" cy="12" rx="4.5" ry="10" fill="none" stroke="currentColor" stroke-width="2"/><path d="M2.5 9h19M2.5 15h19" stroke="currentColor" stroke-width="2"/></g>
+      <g id="icon-filter"><polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></g>
+      <g id="icon-app"><rect x="2" y="3" width="20" height="14" fill="none" stroke="currentColor" stroke-width="2"/><line x1="8" y1="21" x2="16" y2="21" stroke="currentColor" stroke-width="2"/><line x1="12" y1="17" x2="12" y2="21" stroke="currentColor" stroke-width="2"/></g>
+      <g id="icon-decoy"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="6" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="2" fill="none" stroke="currentColor" stroke-width="2"/></g>
+      <g id="icon-sandbox"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z" fill="none" stroke="currentColor" stroke-width="2"/><polyline points="3.27 6.96 12 12.01 20.73 6.96" fill="none" stroke="currentColor" stroke-width="2"/><line x1="12" y1="22.08" x2="12" y2="12" stroke="currentColor" stroke-width="2"/></g>
+      <g id="icon-ban"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07" stroke="currentColor" stroke-width="2"/></g>
+      <g id="icon-log"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" fill="none" stroke="currentColor" stroke-width="2"/><polyline points="14 2 14 8 20 8" fill="none" stroke="currentColor" stroke-width="2"/><line x1="16" y1="13" x2="8" y2="13" stroke="currentColor" stroke-width="2"/><line x1="16" y1="17" x2="8" y2="17" stroke="currentColor" stroke-width="2"/></g>
+      <g id="icon-settings"><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="2"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z" fill="none" stroke="currentColor" stroke-width="2"/></g>
+      <g id="icon-send"><line x1="22" y1="2" x2="11" y2="13" stroke="currentColor" stroke-width="2"/><polygon points="22 2 15 22 11 13 2 9 22 2" fill="none" stroke="currentColor" stroke-width="2"/></g>
+      <g id="icon-refresh"><polyline points="23 4 23 10 17 10" fill="none" stroke="currentColor" stroke-width="2"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10" fill="none" stroke="currentColor" stroke-width="2"/></g>
+      <g id="icon-toggle"><rect x="3" y="3" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"/><line x1="9" y1="3" x2="9" y2="21" stroke="currentColor" stroke-width="2"/></g>
+      <g id="icon-plus"><line x1="12" y1="5" x2="12" y2="19" stroke="currentColor" stroke-width="2"/><line x1="5" y1="12" x2="19" y2="12" stroke="currentColor" stroke-width="2"/></g>
+      <g id="icon-trash"><polyline points="3 6 5 6 21 6" fill="none" stroke="currentColor" stroke-width="2"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" fill="none" stroke="currentColor" stroke-width="2"/></g>
+      <g id="icon-play"><polygon points="5 3 19 12 5 21 5 3" fill="none" stroke="currentColor" stroke-width="2"/></g>
+      <g id="icon-pause"><rect x="6" y="4" width="4" height="16" fill="currentColor"/><rect x="14" y="4" width="4" height="16" fill="currentColor"/></g>
+      <g id="icon-chart"><line x1="3" y1="3" x2="3" y2="21" stroke="currentColor" stroke-width="2"/><line x1="3" y1="21" x2="21" y2="21" stroke="currentColor" stroke-width="2"/><polyline points="6 16 10 10 13 13 18 6" fill="none" stroke="currentColor" stroke-width="2"/></g>
+    </defs>
+  </svg>
+
+  <div class="app-layout">
+    <!-- Collapsible Sidebar -->
+    <aside class="sidebar" id="app-sidebar">
+      <div class="sidebar-header">
+        <div class="sidebar-logo">
+          <svg width="22" height="22"><use href="#icon-shield"/></svg>
+        </div>
+        <div class="sidebar-brand">
+          <span class="sidebar-brand-name">SentinelFW</span>
+          <span class="sidebar-brand-version">ENTERPRISE v3.0</span>
+        </div>
+      </div>
+
+      <nav class="nav-menu">
+        <button class="nav-item active" data-tab="overview">
+          <span class="nav-icon"><svg width="18" height="18"><use href="#icon-matrix"/></svg></span>
+          <span class="nav-label">Dashboard</span>
+        </button>
+        <button class="nav-item" data-tab="network">
+          <span class="nav-icon"><svg width="18" height="18"><use href="#icon-packets"/></svg></span>
+          <span class="nav-label">Network Monitor</span>
+        </button>
+        <button class="nav-item" data-tab="applications">
+          <span class="nav-icon"><svg width="18" height="18"><use href="#icon-app"/></svg></span>
+          <span class="nav-label">Applications</span>
+        </button>
+        <button class="nav-item" data-tab="connections">
+          <span class="nav-icon"><svg width="18" height="18"><use href="#icon-network"/></svg></span>
+          <span class="nav-label">Live Connections</span>
+        </button>
+        <button class="nav-item" data-tab="rules">
+          <span class="nav-icon"><svg width="18" height="18"><use href="#icon-filter"/></svg></span>
+          <span class="nav-label">Firewall Rules</span>
+        </button>
+        <button class="nav-item" data-tab="policies">
+          <span class="nav-icon"><svg width="18" height="18"><use href="#icon-filter"/></svg></span>
+          <span class="nav-label">Firewall Policies</span>
+        </button>
+        <button class="nav-item" data-tab="appwall">
+          <span class="nav-icon"><svg width="18" height="18"><use href="#icon-app"/></svg></span>
+          <span class="nav-label">App Control</span>
+        </button>
+        <button class="nav-item" data-tab="honeypot">
+          <span class="nav-icon"><svg width="18" height="18"><use href="#icon-decoy"/></svg></span>
+          <span class="nav-label">Honeypot Deception</span>
+        </button>
+        <button class="nav-item" data-tab="sandbox">
+          <span class="nav-icon"><svg width="18" height="18"><use href="#icon-sandbox"/></svg></span>
+          <span class="nav-label">Detonation Sandbox</span>
+        </button>
+        <button class="nav-item" data-tab="bans">
+          <span class="nav-icon"><svg width="18" height="18"><use href="#icon-ban"/></svg></span>
+          <span class="nav-label">Active Host Bans</span>
+        </button>
+        <button class="nav-item" data-tab="logs">
+          <span class="nav-icon"><svg width="18" height="18"><use href="#icon-log"/></svg></span>
+          <span class="nav-label">Live Stream Logs</span>
+        </button>
+        <button class="nav-item" data-tab="settings">
+          <span class="nav-icon"><svg width="18" height="18"><use href="#icon-settings"/></svg></span>
+          <span class="nav-label">Settings & Telegram</span>
+        </button>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="sidebar-status-box">
+          <div class="status-dot pulse" id="status-dot"></div>
+          <div class="sidebar-status-text">
+            <div id="sidebar-engine-text">ENGINE ACTIVE</div>
+            <div id="sidebar-backend-text" style="color:var(--text-muted);">NFT/WFP ENFORCING</div>
+          </div>
+        </div>
+        <button class="sidebar-collapse-btn" id="btn-toggle-sidebar" title="Toggle Sidebar">
+          <svg width="14" height="14"><use href="#icon-toggle"/></svg>
+          <span>COLLAPSE</span>
+        </button>
+      </div>
+    </aside>
+
+    <!-- Main Workspace -->
+    <div class="main-wrapper">
+      <header class="topbar">
+        <div class="topbar-left">
+          <h1 class="page-title" id="page-title">Threat Overview & Real-Time Matrix</h1>
+        </div>
+        <div class="topbar-right">
+          <button class="btn btn-sm" id="btn-manual-refresh">
+            <svg width="12" height="12"><use href="#icon-refresh"/></svg>
+            <span>SYNC</span>
+          </button>
+          <div class="clock-display" id="clock-display">00:00:00 UTC</div>
+        </div>
+      </header>
+
+      <main class="content-body">
+        <!-- 1. OVERVIEW -->
+        <section id="tab-overview" class="tab-pane active">
+          <div class="kpi-grid">
+            <div class="kpi-card">
+              <div class="kpi-label">Active Sessions</div>
+              <div class="kpi-value" id="kpi-conns">0</div>
+              <div class="kpi-meta"><span id="kpi-conns-rate">0 flows</span></div>
+            </div>
+            <div class="kpi-card">
+              <div class="kpi-label">Threats Intercepted</div>
+              <div class="kpi-value" style="color:var(--accent-danger);" id="kpi-threats">0</div>
+              <div class="kpi-meta">Last 24 hours</div>
+            </div>
+            <div class="kpi-card">
+              <div class="kpi-label">Enforced Host Bans</div>
+              <div class="kpi-value" style="color:var(--accent-warn);" id="kpi-bans">0</div>
+              <div class="kpi-meta">Autonomous kernel drops</div>
+            </div>
+            <div class="kpi-card">
+              <div class="kpi-label">Total Filter Rules</div>
+              <div class="kpi-value" id="kpi-rules">0</div>
+              <div class="kpi-meta">IPs, hashes & domains</div>
+            </div>
+          </div>
+
+          <div class="kpi-grid secondary">
+            <div class="kpi-card">
+              <div class="kpi-label">Throughput IN / OUT</div>
+              <div class="kpi-value" id="kpi-throughput">0 / 0</div>
+              <div class="kpi-meta"><span id="kpi-pps">0 pps in / 0 pps out</span></div>
+            </div>
+            <div class="kpi-card">
+              <div class="kpi-label">Packets Inspected</div>
+              <div class="kpi-value" id="kpi-packets">0</div>
+              <div class="kpi-meta"><span id="kpi-pkterr"></span></div>
+            </div>
+            <div class="kpi-card">
+              <div class="kpi-label">Unique Remote IPs</div>
+              <div class="kpi-value" id="kpi-ips">0</div>
+              <div class="kpi-meta"><span id="kpi-ips-bad">0 malicious / 0 suspicious</span></div>
+            </div>
+            <div class="kpi-card">
+              <div class="kpi-label">Honeypot Traps</div>
+              <div class="kpi-value" id="kpi-honeypots">0 / 0</div>
+              <div class="kpi-meta">services armed</div>
+            </div>
+          </div>
+
+          <div class="charts-grid">
+            <div class="chart-panel">
+              <div class="chart-header">
+                <span class="chart-title">Real-Time Flow Throughput (Bytes/sec)</span>
+                <span class="badge badge-info" id="chart-rate-label">STREAMING</span>
+              </div>
+              <div class="chart-canvas-wrapper">
+                <canvas class="live-chart" id="traffic-chart"></canvas>
+              </div>
+            </div>
+            <div class="chart-panel">
+              <div class="chart-header">
+                <span class="chart-title">Protocol Distribution (Live DPI)</span>
+                <span class="badge badge-muted">NETLENS</span>
+              </div>
+              <div class="chart-canvas-wrapper">
+                <canvas class="live-chart" id="threat-chart"></canvas>
+              </div>
+            </div>
+          </div>
+
+          <div class="ov-grid">
+            <div class="panel">
+              <div class="panel-header">
+                <div class="panel-title-group"><span class="panel-title">System Health & Resource Utilization</span></div>
+                <span class="badge badge-safe" id="ov-health-badge">HEALTHY</span>
+              </div>
+              <div class="ov-health-body">
+                <div class="gauge-row"><span class="gauge-label">CPU</span><div class="gauge-bar"><div class="gauge-fill" id="gauge-cpu"></div></div><span class="gauge-val mono" id="gauge-cpu-v">0%</span></div>
+                <div class="gauge-row"><span class="gauge-label">MEMORY</span><div class="gauge-bar"><div class="gauge-fill" id="gauge-mem"></div></div><span class="gauge-val mono" id="gauge-mem-v">0%</span></div>
+                <div class="gauge-row"><span class="gauge-label">DISK</span><div class="gauge-bar"><div class="gauge-fill" id="gauge-disk"></div></div><span class="gauge-val mono" id="gauge-disk-v">0%</span></div>
+                <div class="ov-sysinfo" id="ov-sysinfo"></div>
+                <div class="service-strip" id="ov-services"></div>
+              </div>
+            </div>
+            <div class="panel">
+              <div class="panel-header">
+                <div class="panel-title-group"><span class="panel-title">Top Talkers (Bandwidth)</span></div>
+              </div>
+              <div class="table-responsive">
+                <table class="data-table" id="talkers-table">
+                  <thead><tr><th>Remote IP</th><th>Country</th><th>Bytes</th><th>Sessions</th><th></th></tr></thead>
+                  <tbody><tr><td colspan="5" class="empty-state">No active remote endpoints</td></tr></tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-header">
+              <div class="panel-title-group">
+                <span class="panel-title">Recent Security Events & Kill Chain Progression</span>
+              </div>
+            </div>
+            <div class="table-responsive">
+              <table class="data-table" id="attacks-table">
+                <thead>
+                  <tr>
+                    <th>Timestamp</th>
+                    <th>Source IP</th>
+                    <th>Kind / Attack</th>
+                    <th>Severity</th>
+                    <th>Details</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr><td colspan="6" class="empty-state">No critical attack detections recorded in current operational window</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- 2. NETWORK MONITOR (packets + geo threat map) -->
+        <section id="tab-network" class="tab-pane">
+          <div class="net-combined">
+            <div class="panel netpanel">
+              <div class="panel-header">
+                <div class="panel-title-group">
+                  <span class="panel-title">Deep Packet Inspector — Live Capture</span>
+                  <span class="badge" id="cap-status-badge">CONNECTING</span>
+                  <span class="badge badge-muted mono" id="cap-counter">0 pkts</span>
+                  <span class="badge badge-muted mono" id="vt-badge-net">VT: —</span>
+                </div>
+                <div class="panel-actions">
+                  <button class="btn btn-sm" id="btn-pause-capture"><svg width="10" height="10"><use href="#icon-pause"/></svg><span id="pause-capture-label">PAUSE</span></button>
+                  <button class="btn btn-sm btn-danger" id="btn-clear-packets">CLEAR</button>
+                </div>
+              </div>
+              <div class="packet-toolbar">
+                <select class="form-select" id="pkt-filter-proto" title="Protocol filter">
+                  <option value="">ALL PROTOCOLS</option>
+                  <option>TCP</option><option>UDP</option><option>ICMP</option><option>ICMPv6</option>
+                  <option>DNS</option><option>HTTP</option><option>HTTPS</option><option>TLS</option>
+                  <option>SSH</option><option>SMB</option><option>RDP</option>
+                </select>
+                <select class="form-select" id="pkt-filter-sev" title="Severity filter">
+                  <option value="">ALL SEVERITY</option>
+                  <option value="critical">CRITICAL</option>
+                  <option value="high">HIGH</option>
+                  <option value="medium">MEDIUM</option>
+                  <option value="info">INFO</option>
+                </select>
+                <select class="form-select" id="pkt-filter-dir" title="Direction filter">
+                  <option value="">ALL DIRECTIONS</option>
+                  <option value="in">INBOUND</option>
+                  <option value="out">OUTBOUND</option>
+                </select>
+                <select class="form-select" id="pkt-filter-verdict" title="Verdict filter">
+                  <option value="">ALL VERDICTS</option>
+                  <option value="blocked">BLOCKED</option>
+                  <option value="allow">ALLOWED</option>
+                </select>
+                <select class="form-select" id="pkt-filter-time" title="Time window">
+                  <option value="0">ALL TIME</option>
+                  <option value="60">LAST 1 MIN</option>
+                  <option value="300">LAST 5 MIN</option>
+                  <option value="900">LAST 15 MIN</option>
+                  <option value="3600">LAST 1 HOUR</option>
+                </select>
+                <input type="text" class="form-input mono" id="pkt-search" placeholder="Filter: ip, port, domain, string…">
+                <div class="spacer"></div>
+                <div class="proto-chips" id="proto-chips"></div>
+              </div>
+              <div class="packet-layout">
+                <div class="packet-table-wrap">
+                  <table class="data-table packet-table" id="packets-table">
+                    <thead>
+                      <tr>
+                        <th style="width:52px;">#</th>
+                        <th style="width:96px;">Time</th>
+                        <th>Source</th>
+                        <th>Destination</th>
+                        <th style="width:86px;">Protocol</th>
+                        <th style="width:64px;">Length</th>
+                        <th style="width:86px;">Severity</th>
+                        <th>Info</th>
+                      </tr>
+                    </thead>
+                    <tbody></tbody>
+                  </table>
+                  <div class="empty-state pkt-empty" id="pkt-empty">Waiting for packets — capture starts when the engine sniffer is active (run as root/admin).</div>
+                </div>
+                <div class="packet-detail" id="packet-detail">
+                  <div class="pd-placeholder">Select a packet to inspect full protocol tree and hex dump</div>
+                </div>
+              </div>
+            </div>
+            <div class="map-layout net-map-panel">
+  <div class="map-layout">
+              <div class="map-canvas-wrap">
+                <div id="threat-map"></div>
+                <div class="map-legend">
+                  <div class="map-legend-title">THREAT LEVEL</div>
+                  <div class="legend-item"><span class="legend-dot" style="background:#e04f4f;"></span>Malicious / Banned</div>
+                  <div class="legend-item"><span class="legend-dot" style="background:#d9a036;"></span>Suspicious</div>
+                  <div class="legend-item"><span class="legend-dot" style="background:#6e93b8;"></span>Normal traffic</div>
+                  <div class="map-legend-title" style="margin-top:10px;">LAYER</div>
+                  <button class="btn btn-sm map-mode-btn active" id="map-mode-markers">ENDPOINTS</button>
+                  <button class="btn btn-sm map-mode-btn" id="map-mode-heat">HEATMAP</button>
+                  <div class="map-tiles-note">© OpenFreeMap / OSM contributors</div>
+                </div>
+                <div class="map-badges">
+                  <span class="badge badge-muted" id="map-geo-badge">GEO DB: —</span>
+                  <span class="badge badge-info" id="map-ips-badge">0 IPs</span>
+                </div>
+              </div>
+              <div class="map-side">
+                <div class="panel">
+                  <div class="panel-header"><div class="panel-title-group"><span class="panel-title">Connected Endpoints</span></div></div>
+                  <input type="text" class="form-input" id="map-search" placeholder="Filter IPs / countries…" style="margin:0 12px 8px;width:calc(100% - 24px);">
+                  <div class="map-ip-list" id="map-ip-list"></div>
+                </div>
+                <div class="panel">
+                  <div class="panel-header"><div class="panel-title-group"><span class="panel-title">Country Distribution</span></div></div>
+                  <div class="country-list" id="country-list"></div>
+                </div>
+              </div>
+            </div>
+            </div>
+          </div>
+        </section>
+
+<!-- 4. APPLICATIONS -->
+        <section id="tab-applications" class="tab-pane">
+          <div class="panel">
+            <div class="panel-header">
+              <div class="panel-title-group">
+                <span class="panel-title">Application & Software Inventory</span>
+                <span class="badge badge-info" id="apps-count-badge">0 apps</span>
+                <span class="badge badge-danger" id="apps-blocked-badge">0 blocked</span>
+              </div>
+              <div class="panel-actions">
+                <div class="app-filter-chips">
+                  <button class="filter-chip active" data-appfilter="all">ALL</button>
+                  <button class="filter-chip" data-appfilter="net">NETWORK ACTIVE</button>
+                  <button class="filter-chip" data-appfilter="blocked">BLOCKED</button>
+                  <button class="filter-chip" data-appfilter="system">SYSTEM</button>
+                </div>
+                <select class="form-select" id="apps-sort" title="Sort by" style="width:150px;">
+                  <option value="traffic">SORT: TRAFFIC</option>
+                  <option value="mem">SORT: MEMORY</option>
+                  <option value="cpu">SORT: CPU</option>
+                  <option value="conns">SORT: CONNECTIONS</option>
+                  <option value="name">SORT: NAME</option>
+                </select>
+                <input type="text" class="form-input" id="apps-search" placeholder="Search application, path…" style="width:220px;">
+              </div>
+            </div>
+            <div class="apps-grid" id="apps-grid"></div>
+            <div class="apps-hint">Right-click any application for quick actions (block network, kill, quarantine, scan remote IPs with VirusTotal).</div>
+          </div>
+        </section>
+
+        <!-- 5. LIVE CONNECTIONS -->
+        <section id="tab-connections" class="tab-pane">
+          <div class="panel">
+            <div class="panel-header">
+              <div class="panel-title-group">
+                <span class="panel-title">Active Network Sockets & Process Attribution</span>
+              </div>
+              <div class="panel-actions">
+                <input type="text" class="form-input" id="conns-search" placeholder="Filter process, IP, port..." style="width:240px;">
+              </div>
+            </div>
+            <div class="table-responsive">
+              <table class="data-table" id="conns-table">
+                <thead>
+                  <tr>
+                    <th>PID</th>
+                    <th>Executable</th>
+                    <th>Protocol</th>
+                    <th>Local Socket</th>
+                    <th>Remote Socket</th>
+                    <th>Geo / ASN</th>
+                    <th>State</th>
+                    <th>Actions</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- 6. FIREWALL RULES -->
+        <section id="tab-rules" class="tab-pane">
+          <div class="panel">
+            <div class="panel-header">
+              <div class="panel-title-group">
+                <span class="panel-title">Enforced Manual Filter Lists</span>
+              </div>
+              <div class="panel-actions">
+                <button class="btn btn-primary btn-sm" id="btn-add-rule-modal">
+                  <svg width="12" height="12"><use href="#icon-plus"/></svg>
+                  <span>ADD RULE</span>
+                </button>
+              </div>
+            </div>
+            <div class="table-responsive">
+              <table class="data-table" id="rules-table">
+                <thead>
+                  <tr><th>Type</th><th>Target Rule / Pattern / Hash</th><th>Action</th><th>Actions</th></tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- 6b. FIREWALL POLICIES (FortiGate-style) -->
+        <section id="tab-policies" class="tab-pane">
+          <div class="panel pol-panel">
+            <div class="panel-header">
+              <div class="panel-title-group">
+                <span class="panel-title">Firewall Policies</span>
+                <span class="badge badge-info" id="pol-count-badge">0 policies</span>
+                <span class="badge badge-muted" id="pol-engine-badge">—</span>
+              </div>
+              <div class="panel-actions">
+                <input type="text" class="form-input" id="pol-search" placeholder="Policy lookup…" style="width:220px;">
+                <button class="btn btn-primary btn-sm" id="btn-new-policy">
+                  <svg width="12" height="12"><use href="#icon-plus"/></svg>
+                  <span>CREATE NEW</span>
+                </button>
+              </div>
+            </div>
+            <div class="table-responsive">
+              <table class="data-table" id="policies-table">
+                <thead>
+                  <tr>
+                    <th style="width:46px;">ID</th>
+                    <th style="width:36px;">#</th>
+                    <th>Name</th>
+                    <th>Source</th>
+                    <th>Destination</th>
+                    <th>Service</th>
+                    <th style="width:72px;">Action</th>
+                    <th style="width:52px;">NAT</th>
+                    <th>Security Profiles</th>
+                    <th style="width:70px;">Hits</th>
+                    <th style="width:58px;">Enabled</th>
+                    <th style="width:130px;">Actions</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+            <div class="pol-footer-note">Policies are evaluated top-down (first match wins) and enforced directly by the OS firewall — nftables on Linux, Windows Defender Firewall on Windows. Chain default is ACCEPT, so removing every deny policy restores full connectivity. Linux counters are live kernel hit counts; Windows shows a dash.</div>
+          </div>
+        </section>
+
+        <!-- 7. APPLICATION FIREWALL -->
+        <section id="tab-appwall" class="tab-pane">
+          <div class="panel">
+            <div class="panel-header">
+              <div class="panel-title-group">
+                <span class="panel-title">Per-Application Network Policies</span>
+              </div>
+            </div>
+            <div class="table-responsive">
+              <table class="data-table" id="appwall-table">
+                <thead>
+                  <tr>
+                    <th>Target Executable Glob</th>
+                    <th>Allowed Outbound Ports</th>
+                    <th>Allowed Inbound Ports</th>
+                    <th>Denied Targets</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- 8. HONEYPOT -->
+        <section id="tab-honeypot" class="tab-pane">
+          <div class="panel">
+            <div class="panel-header">
+              <div class="panel-title-group">
+                <span class="panel-title">Deception Traps — Spawn / Stop Services</span>
+                <span class="badge badge-info" id="hp-geo-badge">GEO DB: —</span>
+              </div>
+              <div class="panel-actions">
+                <button class="btn btn-sm btn-primary" id="btn-spawn-all">SPAWN CONFIGURED</button>
+                <button class="btn btn-sm" id="btn-stop-all-hp">STOP ALL</button>
+              </div>
+            </div>
+            <div class="hp-services-grid" id="hp-services-grid"></div>
+          </div>
+          <div class="panel">
+            <div class="panel-header">
+              <div class="panel-title-group"><span class="panel-title">Captured Trap Sessions & Attacker Telemetry</span></div>
+            </div>
+            <div class="table-responsive">
+              <table class="data-table" id="honeypot-table">
+                <thead>
+                  <tr>
+                    <th>Service</th>
+                    <th>Attacker IP</th>
+                    <th>Captured Credentials</th>
+                    <th>Commands / Probes</th>
+                    <th>Session Duration</th>
+                  </tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- 9. SANDBOX -->
+        <section id="tab-sandbox" class="tab-pane">
+          <div class="panel">
+            <div class="panel-header">
+              <div class="panel-title-group"><span class="panel-title">Behavioral Detonation Verdicts</span></div>
+              <div class="panel-actions">
+                <input type="text" class="form-input mono" id="sandbox-path" placeholder="/path/to/suspicious/sample" style="width:280px;">
+                <button class="btn btn-sm btn-primary" id="btn-detonate">DETONATE</button>
+              </div>
+            </div>
+            <div class="status-banner" id="sandbox-banner" style="margin:0 12px 12px;"></div>
+            <div class="table-responsive">
+              <table class="data-table" id="sandbox-table">
+                <thead>
+                  <tr><th>Sample Name</th><th>Verdict</th><th>Risk Score</th><th>Extracted Indicators</th><th>Created Files</th></tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- 10. BANS -->
+        <section id="tab-bans" class="tab-pane">
+          <div class="panel">
+            <div class="panel-header">
+              <div class="panel-title-group"><span class="panel-title">Active Kernel Host Bans</span></div>
+              <div class="panel-actions">
+                <button class="btn btn-danger btn-sm" id="btn-manual-ban-modal">
+                  <svg width="12" height="12"><use href="#icon-ban"/></svg>
+                  <span>MANUAL BAN</span>
+                </button>
+              </div>
+            </div>
+            <div class="table-responsive">
+              <table class="data-table" id="bans-table">
+                <thead>
+                  <tr><th>IP Address</th><th>Reason</th><th>Source</th><th>Time Remaining</th><th>Actions</th></tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- 11. LIVE LOG STREAMER -->
+        <section id="tab-logs" class="tab-pane">
+          <div class="log-streamer-container">
+            <div class="log-streamer-toolbar">
+              <div class="log-filter-chips">
+                <button class="filter-chip active" data-sev="">ALL SEVERITY</button>
+                <button class="filter-chip" data-sev="critical">CRITICAL</button>
+                <button class="filter-chip" data-sev="warning">WARNING</button>
+                <button class="filter-chip" data-sev="info">INFO</button>
+              </div>
+              <div style="display:flex; align-items:center; gap:8px;">
+                <input type="text" class="form-input mono" id="logs-search" placeholder="Search logs..." style="width:200px; padding:4px 8px; font-size:11px;">
+                <button class="btn btn-sm" id="btn-toggle-stream" title="Pause or Resume Stream">
+                  <svg width="10" height="10"><use href="#icon-pause"/></svg>
+                  <span id="stream-status-label">STREAMING</span>
+                </button>
+                <button class="btn btn-sm" id="btn-clear-logs">CLEAR</button>
+              </div>
+            </div>
+            <div class="log-lines-box" id="log-lines"></div>
+          </div>
+        </section>
+
+        <!-- 12. SETTINGS & TELEGRAM -->
+        <section id="tab-settings" class="tab-pane">
+          <!-- Telegram Integration -->
+          <div class="settings-section" id="settings-telegram">
+            <div class="settings-section-title">Telegram Alert Dispatcher</div>
+            <div class="settings-desc">
+              Push real-time security alerts (bans, port scans, brute force, honeypot hits) to any Telegram chat via a BotFather bot.
+            </div>
+            <div class="status-banner" id="telegram-banner"></div>
+
+            <div class="settings-grid">
+              <div class="settings-col">
+                <div class="settings-subtitle">1. Connection</div>
+                <div class="settings-row">
+                  <label class="form-label">Enable Dispatcher</label>
+                  <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+                    <input type="checkbox" id="telegram-enabled">
+                    <span style="font-size:12px; color:var(--text-secondary);">Transmit real-time alerts to Telegram</span>
+                  </label>
+                </div>
+                <div class="settings-row">
+                  <label class="form-label">BotFather Bot Token</label>
+                  <input type="password" class="form-input mono" id="telegram-token" placeholder="e.g. 123456789:ABCdefGhIJKlmNoPQRsTUVwxyZ">
+                </div>
+                <div class="settings-row">
+                  <label class="form-label">Destination Chat ID</label>
+                  <input type="text" class="form-input mono" id="telegram-chat-id" placeholder="e.g. -100123456789 or 987654321">
+                </div>
+                <div class="settings-row">
+                  <label class="form-label">Rate Limit (per minute)</label>
+                  <input type="number" class="form-input mono" id="telegram-rate" value="15" min="1" max="60" style="width:120px;">
+                </div>
+                <div style="display:flex; gap:12px; margin-top:8px;">
+                  <button class="btn btn-primary" id="btn-save-telegram">SAVE CONFIGURATION</button>
+                  <button class="btn" id="btn-test-telegram">
+                    <svg width="12" height="12"><use href="#icon-send"/></svg>
+                    <span>SEND TEST ALERT</span>
+                  </button>
+                </div>
+              </div>
+              <div class="settings-col">
+                <div class="settings-subtitle">2. Alert Content</div>
+                <div class="settings-row">
+                  <label class="form-label">Alert Severities</label>
+                  <div style="display:flex; gap:16px; flex-wrap:wrap;">
+                    <label style="display:flex; align-items:center; gap:6px; cursor:pointer;">
+                      <input type="checkbox" id="sev-critical" checked> <span style="color:var(--accent-danger);">CRITICAL</span>
+                    </label>
+                    <label style="display:flex; align-items:center; gap:6px; cursor:pointer;">
+                      <input type="checkbox" id="sev-warning" checked> <span style="color:var(--accent-warn);">WARNING</span>
+                    </label>
+                    <label style="display:flex; align-items:center; gap:6px; cursor:pointer;">
+                      <input type="checkbox" id="sev-info"> <span style="color:var(--text-secondary);">INFO</span>
+                    </label>
+                  </div>
+                </div>
+                <div class="settings-row">
+                  <label class="form-label">Include IP Intelligence</label>
+                  <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+                    <input type="checkbox" id="telegram-geo" checked>
+                    <span style="font-size:12px; color:var(--text-secondary);">Attach GeoIP country / org context to alerts</span>
+                  </label>
+                </div>
+                <div class="settings-row">
+                  <label class="form-label">Current Status</label>
+                  <div id="telegram-status-inline" class="mono" style="font-size:11px; color:var(--text-secondary);">—</div>
+                </div>
+                <div class="telegram-guide">
+                  <div class="settings-subtitle">Setup Guide</div>
+                  <ol>
+                    <li>In Telegram, message <span class="mono">@BotFather</span> → <span class="mono">/newbot</span> and copy the token.</li>
+                    <li>Paste the token above, then message your bot once (press <b>Start</b>) so it can DM you.</li>
+                    <li>Get your Chat ID from <span class="mono">@userinfobot</span> (or use a group's negative ID).</li>
+                    <li>Click <b>Send Test Alert</b> to verify, then <b>Save Configuration</b>.</li>
+                  </ol>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- VirusTotal Threat Intelligence -->
+          <div class="settings-section" id="settings-vt">
+            <div class="settings-section-title">VirusTotal Threat Intelligence</div>
+            <div class="settings-desc">
+              Scans every new remote IP against VirusTotal once. IPs already flagged as malicious are remembered permanently and never re-scanned; clean IPs are re-validated after 7 days. Optionally auto-ban confirmed malicious IPs.
+            </div>
+            <div class="status-banner" id="vt-banner"></div>
+            <div class="settings-grid">
+              <div class="settings-col">
+                <div class="settings-subtitle">1. Connection</div>
+                <div class="settings-row">
+                  <label class="form-label">VirusTotal API Key</label>
+                  <input type="password" class="form-input mono" id="vt-api-key" placeholder="64-char key from virustotal.com → profile → API key">
+                </div>
+                <div class="settings-row">
+                  <label class="form-label">Malicious-Vote Threshold</label>
+                  <input type="number" class="form-input mono" id="vt-min-votes" value="3" min="1" max="80" style="width:100px;">
+                </div>
+                <div style="display:flex; gap:12px; margin-top:8px;">
+                  <button class="btn btn-primary" id="btn-save-vt">SAVE CONFIGURATION</button>
+                </div>
+              </div>
+              <div class="settings-col">
+                <div class="settings-subtitle">2. Automation</div>
+                <div class="settings-row">
+                  <label class="form-label">Auto-Scan New IPs</label>
+                  <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+                    <input type="checkbox" id="vt-auto-scan" checked>
+                    <span style="font-size:12px; color:var(--text-secondary);">Scan unseen remote endpoints in the background (respects the 4 req/min free-tier limit)</span>
+                  </label>
+                </div>
+                <div class="settings-row">
+                  <label class="form-label">Auto-Ban Detected Malicious IPs</label>
+                  <label style="display:flex; align-items:center; gap:8px; cursor:pointer;">
+                    <input type="checkbox" id="vt-auto-ban">
+                    <span style="font-size:12px; color:var(--text-secondary);">Enforce an immediate 24h kernel ban when VirusTotal confirms an IP as malicious</span>
+                  </label>
+                </div>
+                <div class="settings-row">
+                  <label class="form-label">Current Status</label>
+                  <div id="vt-status-inline" class="mono" style="font-size:11px; color:var(--text-secondary);">—</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Engine -->
+          <div class="settings-section">
+            <div class="settings-section-title">Engine Operating Parameters</div>
+            <div class="settings-grid">
+              <div class="settings-col">
+                <div class="settings-row">
+                  <label class="form-label">Enforcement Profile</label>
+                  <select class="form-select" id="engine-profile">
+                    <option value="aggressive">Aggressive (Autonomous Ban & Kill)</option>
+                    <option value="monitor">Monitor (Log Only Heuristics)</option>
+                  </select>
+                </div>
+                <div class="settings-row">
+                  <label class="form-label">Default Ban Duration</label>
+                  <input type="text" class="form-input mono" id="cfg-ban-duration" value="86400" style="width:160px;">
+                </div>
+                <div style="margin-top:8px;">
+                  <button class="btn btn-primary" id="btn-save-engine">UPDATE ENGINE</button>
+                </div>
+              </div>
+              <div class="settings-col">
+                <div class="settings-row">
+                  <label class="form-label">Packet Capture Buffer</label>
+                  <div class="mono" style="font-size:11px; color:var(--text-secondary);" id="cap-buffer-info">—</div>
+                </div>
+                <div class="settings-row">
+                  <label class="form-label">Danger Zone</label>
+                  <button class="btn btn-sm btn-danger" id="btn-clear-pkts-settings">CLEAR PACKET BUFFER</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+      </main>
+    </div>
+  </div>
+
+  <!-- MODAL: MANUAL BAN -->
+  <div class="modal-overlay" id="modal-ban">
+    <div class="modal-card">
+      <div class="modal-header">
+        <span class="modal-title">Enforce Manual Host Ban</span>
+        <button class="btn btn-sm" id="btn-close-modal-ban">X</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label">Target IPv4 or IPv6</label>
+          <input type="text" class="form-input mono" id="ban-ip-input" placeholder="e.g. 198.51.100.45">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Ban Duration (Seconds or e.g. 30m, 12h, 7d)</label>
+          <input type="text" class="form-input mono" id="ban-duration-input" value="86400">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Reason / Justification</label>
+          <input type="text" class="form-input" id="ban-reason-input" value="Manual administrator mitigation">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-danger" id="btn-submit-ban">ENFORCE BAN</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: ADD RULE -->
+  <div class="modal-overlay" id="modal-rule">
+    <div class="modal-card">
+      <div class="modal-header">
+        <span class="modal-title">Create Manual Firewall Rule</span>
+        <button class="btn btn-sm" id="btn-close-modal-rule">X</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label">Rule Type</label>
+          <select class="form-select" id="rule-type-select">
+            <option value="ip">IP / CIDR Block</option>
+            <option value="domain">Domain Sinkhole</option>
+            <option value="program">Executable Path / Glob</option>
+            <option value="hash">SHA-256 Binary Hash</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Rule Target / Pattern</label>
+          <input type="text" class="form-input mono" id="rule-value-input" placeholder="e.g. 203.0.113.0/24 or evil.com">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-primary" id="btn-submit-rule">ADD RULE</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: POLICY EDITOR (FortiGate-style) -->
+  <div class="modal-overlay" id="modal-policy">
+    <div class="modal-card modal-policy-card">
+      <div class="modal-header">
+        <span class="modal-title" id="policy-modal-title">Create New Policy</span>
+        <button class="btn btn-sm" id="btn-close-modal-policy">X</button>
+      </div>
+      <div class="modal-body">
+        <div class="pol-form-grid">
+          <div class="form-group">
+            <label class="form-label">Name</label>
+            <input type="text" class="form-input" id="pol-name" placeholder="e.g. Allow company HTTPS out">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Direction</label>
+            <select class="form-select" id="pol-direction">
+              <option value="both">Incoming & Outgoing</option>
+              <option value="in">Incoming</option>
+              <option value="out">Outgoing</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Action</label>
+            <select class="form-select" id="pol-action">
+              <option value="deny">DENY</option>
+              <option value="accept">ACCEPT</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Enabled</label>
+            <label style="display:flex; align-items:center; gap:8px; padding-top:6px; cursor:pointer;">
+              <input type="checkbox" id="pol-enabled" checked>
+              <span style="font-size:12px; color:var(--text-secondary);">Enforce this policy</span>
+            </label>
+          </div>
+          <div class="form-group pol-wide">
+            <label class="form-label">Source Address(es) — comma-separated IP / CIDR, or "any"</label>
+            <input type="text" class="form-input mono" id="pol-src" placeholder="e.g. 192.168.1.0/24, 10.0.0.5 — or any">
+          </div>
+          <div class="form-group pol-wide">
+            <label class="form-label">Destination Address(es)</label>
+            <input type="text" class="form-input mono" id="pol-dst" placeholder="e.g. 0.0.0.0/0 — or any">
+          </div>
+          <div class="form-group pol-wide">
+            <label class="form-label">Services</label>
+            <div class="pol-services" id="pol-services"></div>
+          </div>
+          <div class="form-group pol-wide">
+            <label class="form-label">Security Profiles (applied to SentinelFW detections)</label>
+            <div class="pol-profiles" id="pol-profiles"></div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Log Allowed Traffic</label>
+            <label style="display:flex; align-items:center; gap:8px; padding-top:6px; cursor:pointer;">
+              <input type="checkbox" id="pol-log" checked>
+              <span style="font-size:12px; color:var(--text-secondary);">Emit match events</span>
+            </label>
+          </div>
+          <div class="form-group">
+            <label class="form-label">NAT</label>
+            <label style="display:flex; align-items:center; gap:8px; padding-top:6px; cursor:pointer;">
+              <input type="checkbox" id="pol-nat">
+              <span style="font-size:12px; color:var(--text-secondary);">Route via WAN NAT (documentation)</span>
+            </label>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn" id="btn-cancel-policy">CANCEL</button>
+        <button class="btn btn-primary" id="btn-submit-policy">SAVE POLICY</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- RIGHT-CLICK CONTEXT MENU -->
+  <div class="ctx-menu" id="ctx-menu"></div>
+
+  <!-- MODAL: APPLICATION DETAIL -->
+  <div class="modal-overlay" id="modal-app">
+    <div class="modal-card modal-app-card">
+      <div class="modal-header">
+        <span class="modal-title" id="app-modal-title">Application</span>
+        <button class="btn btn-sm" id="btn-close-modal-app">X</button>
+      </div>
+      <div class="modal-body" id="app-modal-body"></div>
+    </div>
+  </div>
+
+  <script src="/app.js"></script>
+</body>
+</html>

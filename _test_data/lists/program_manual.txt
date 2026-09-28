@@ -1,0 +1,1 @@
+# Executable paths or globs, e.g. C:\Users\*\AppData\Local\Temp\*.exe or /tmp/*

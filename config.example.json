@@ -1,0 +1,256 @@
+{
+  "__comment": "=== SentinelFW 3.0 Enterprise Configuration ===",
+  "never_block": [],
+  "protect_private": true,
+  "auto_ban_seconds": 86400,
+  "monitor_interval": 2.0,
+  "sniffer_enabled": true,
+  "thresholds": {
+    "port_scan_ports": 20,
+    "port_scan_window": 10,
+    "syn_flood_rate": 300,
+    "syn_flood_window": 2,
+    "brute_force_attempts": 15,
+    "brute_force_window": 30,
+    "brute_force_ports": [
+      21,
+      22,
+      23,
+      445,
+      1433,
+      3306,
+      3389,
+      5432,
+      5900
+    ],
+    "icmp_flood_count": 100,
+    "icmp_flood_window": 5,
+    "sweep_hosts": 50,
+    "sweep_window": 10
+  },
+  "enforcement_profile": "aggressive",
+  "exec_watch": true,
+  "actions": {
+    "blocklisted_ip_connection": "kill",
+    "blocked_program": "kill+file",
+    "malicious_hash": "kill+file",
+    "temp_dir_network": "kill+file",
+    "deleted_executable": "kill",
+    "blocked_port_connection": "kill"
+  },
+  "malicious_file_action": "quarantine",
+  "quarantine_retention_days": 7,
+  "blocked_remote_ports": [],
+  "suspicious_dirs": {
+    "linux": [
+      "/tmp/",
+      "/dev/shm/",
+      "/var/tmp/"
+    ],
+    "windows": [
+      "\\appdata\\local\\temp\\",
+      "\\windows\\temp\\",
+      "\\users\\public\\"
+    ]
+  },
+  "payload_signatures": [
+    {
+      "name": "path_traversal",
+      "regex": "(?:\\.\\./){3,}|(?:%2e%2e%2f){2,}|(?:%252e%252e%252f){2,}"
+    },
+    {
+      "name": "sql_injection_union",
+      "regex": "(?i)union(?:\\s|%20|\\+)+(?:all\\s+)?select"
+    },
+    {
+      "name": "sql_injection_blind",
+      "regex": "(?i)(?:sleep\\s*\\(\\s*\\d+\\s*\\)|benchmark\\s*\\(\\s*\\d+|waitfor\\s+delay)"
+    },
+    {
+      "name": "shellshock",
+      "regex": "\\(\\)\\s*\\{\\s*:;\\s*\\}\\s*;"
+    },
+    {
+      "name": "log4shell",
+      "regex": "(?i)\\$\\{(?:lower:|upper:)?jndi:(?:ldap|ldaps|rmi|dns)://"
+    },
+    {
+      "name": "spring4shell",
+      "regex": "(?i)(?:class\\.module\\.classLoader|class\\[\"module\"\\])"
+    },
+    {
+      "name": "proxylogon",
+      "regex": "(?i)/owa/auth/x\\.js"
+    },
+    {
+      "name": "proxyshell",
+      "regex": "(?i)/autodiscover/autodiscover\\.json\\?.*(?:@|%40).*powershell"
+    },
+    {
+      "name": "moveit_rce",
+      "regex": "(?i)/human\\.aspx"
+    },
+    {
+      "name": "citrix_bleed",
+      "regex": "(?i)/oauth/idp/.*(?:logout|init)"
+    },
+    {
+      "name": "etc_passwd_read",
+      "regex": "(?:/etc/passwd|/etc/shadow|/etc/hosts)"
+    },
+    {
+      "name": "cmd_injection_pipes",
+      "regex": "(?:;|\\|\\||&&|`|\\$\\()\\s*(?:cat|ls|id|whoami|uname|curl|wget|bash|sh|nc|powershell|cmd\\.exe)\\b"
+    },
+    {
+      "name": "llm_prompt_injection",
+      "regex": "(?i)(?:ignore(?:\\s+all)?\\s+(?:previous|above)\\s+instructions|system\\s+prompt\\s+override|you\\s+are\\s+now\\s+dan\\b)"
+    }
+  ],
+  "feeds": [
+    {
+      "name": "firehol_level1",
+      "type": "ip",
+      "enabled": true,
+      "url": "https://raw.githubusercontent.com/firehol/blocklist-ipsets/master/firehol_level1.netset"
+    },
+    {
+      "name": "feodo_c2",
+      "type": "ip",
+      "enabled": true,
+      "url": "https://feodotracker.abuse.ch/downloads/ipblocklist.txt"
+    },
+    {
+      "name": "et_compromised",
+      "type": "ip",
+      "enabled": true,
+      "url": "https://rules.emergingthreats.net/blockrules/compromised-ips.txt"
+    },
+    {
+      "name": "urlhaus_domains",
+      "type": "domain",
+      "enabled": true,
+      "url": "https://urlhaus.abuse.ch/downloads/hostfile/"
+    }
+  ],
+  "update_interval_hours": 12,
+  "hosts_file_sinkhole": true,
+  "hosts_file_max_domains": 20000,
+  "dns_block_resolved_ips": true,
+  "default_deny_inbound": false,
+  "allow_inbound_ports": [],
+  "suricata": {
+    "enabled": true,
+    "binary": "auto",
+    "config_path": "auto",
+    "eve_socket": "auto",
+    "rules_update_interval_hours": 24,
+    "custom_rules_dir": "",
+    "home_net": "auto"
+  },
+  "application_firewall": {
+    "enabled": true,
+    "default_policy": "allow",
+    "log_all_connections": true,
+    "policies": [
+      {
+        "match": {
+          "exe_path": "C:\\Program Files\\Firefox\\firefox.exe"
+        },
+        "allow_outbound": [
+          "tcp/80",
+          "tcp/443",
+          "udp/443"
+        ],
+        "allow_inbound": [],
+        "allow_destinations": [
+          "0.0.0.0/0"
+        ],
+        "deny_destinations": [
+          "10.0.0.0/8"
+        ],
+        "action_on_violation": "block+alert"
+      },
+      {
+        "match": {
+          "exe_glob": "*\\AppData\\*\\*.exe"
+        },
+        "allow_outbound": [],
+        "action_on_violation": "kill+quarantine"
+      }
+    ]
+  },
+  "connection_tracker": {
+    "enabled": true,
+    "geoip_enabled": true,
+    "geoip_db_path": "auto",
+    "bandwidth_tracking": true,
+    "snapshot_interval_seconds": 2
+  },
+  "honeypot": {
+    "enabled": true,
+    "auto_redirect_scanners": true,
+    "redirect_window_seconds": 300,
+    "services": {}
+  },
+  "canary": {
+    "enabled": true,
+    "plant_fake_credentials": true,
+    "plant_fake_ssh_keys": true,
+    "plant_fake_env_files": true,
+    "dns_canary_domain": ""
+  },
+  "sandbox": {
+    "enabled": true,
+    "auto_submit_honeypot_uploads": true,
+    "auto_submit_quarantined": true,
+    "max_execution_seconds": 60,
+    "memory_limit_mb": 256,
+    "network_allowed": false,
+    "max_concurrent": 2
+  },
+  "elasticsearch": {
+    "enabled": false,
+    "hosts": [
+      "http://localhost:9200"
+    ],
+    "username": "",
+    "password": "",
+    "index_prefix": "sentinelfw",
+    "bulk_size": 500,
+    "flush_interval_seconds": 5
+  },
+  "webui": {
+    "enabled": true,
+    "listen": "127.0.0.1",
+    "port": 9443,
+    "tls": false,
+    "admin_password_hash": "",
+    "session_timeout_minutes": 60
+  },
+  "anomaly_detection": {
+    "enabled": true,
+    "baseline_window_days": 7,
+    "alert_threshold_sigma": 3.0,
+    "autorespond_threshold_sigma": 5.0
+  },
+  "attack_mapping": {
+    "mitre_attack_enabled": true,
+    "kill_chain_tracking": true,
+    "kill_chain_escalation": true,
+    "auto_correlate_window_minutes": 30
+  },
+  "threat_intel": {
+    "stix_taxii_enabled": false,
+    "taxii_server": "",
+    "taxii_collection": "",
+    "ioc_auto_extract": true,
+    "ioc_sharing_enabled": false
+  },
+  "self_protection": {
+    "watchdog_enabled": true,
+    "file_integrity_check": true,
+    "anti_tampering": true
+  },
+  "firewall_policies": []
+}

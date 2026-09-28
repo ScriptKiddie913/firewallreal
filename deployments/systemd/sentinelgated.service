@@ -1,0 +1,25 @@
+[Unit]
+Description=SentinelGate Next-Generation Firewall Control Plane Daemon
+After=network-online.target systemd-sysctl.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=root
+ExecStart=/usr/local/bin/sentinelgated --config /etc/sentinelgate/active.yaml --socket /run/sentinelgate.sock --listen :8443
+Restart=always
+RestartSec=3s
+LimitNOFILE=1048576
+
+# Security Hardening Baseline (CIS-compliant)
+CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_RAW CAP_BPF CAP_SYS_ADMIN
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/etc/sentinelgate /run /var/log/sentinelgate
+PrivateTmp=true
+ProtectKernelTunables=false
+ProtectControlGroups=true
+
+[Install]
+WantedBy=multi-user.target

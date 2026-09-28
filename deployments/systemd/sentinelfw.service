@@ -1,0 +1,20 @@
+[Unit]
+Description=SentinelFW 3.0 Enterprise Endpoint Firewall & IPS Agent
+After=network.target
+
+[Service]
+Type=simple
+User=root
+ExecStart=/usr/local/bin/sentinelfw daemon
+Restart=always
+RestartSec=2s
+LimitNOFILE=65535
+
+# Endpoint Hardening & Isolation
+CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_RAW CAP_KILL CAP_SYS_PTRACE
+NoNewPrivileges=true
+ProtectSystem=full
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
