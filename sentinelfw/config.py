@@ -171,8 +171,8 @@ DEFAULT_CONFIG = {
     },
     "webui": {
         "enabled": True,
-        "listen": "127.0.0.1",
-        "port": 9443,
+        "listen": "0.0.0.0",
+        "port": 443,
         "tls": True,
         "admin_password_hash": "",
         "session_timeout_minutes": 60,
