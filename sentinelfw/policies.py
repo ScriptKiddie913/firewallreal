@@ -51,7 +51,7 @@ SERVICE_OBJECTS = {
     "SIP": [("udp", 5060, 5061), ("tcp", 5060, 5061)],
     "VPN-IPSEC": [("udp", 500, 500), ("udp", 4500, 4500)],
     "VPN-WIREGUARD": [("udp", 51820, 51820)],
-    "SENTINELFW-WEB": [("tcp", 9443, 9444)],
+    "SENTINELFW-WEB": [("tcp", 443, 443)],
 }
 
 PROFILE_CATALOG = [
