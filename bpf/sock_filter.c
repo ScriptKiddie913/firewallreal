@@ -6,6 +6,7 @@
 
 #include <linux/bpf.h>
 #include <linux/in.h>
+#include <bpf/bpf_helpers.h>
 
 #ifndef SEC
 #define SEC(NAME) __attribute__((section(NAME), used))

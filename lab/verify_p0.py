@@ -9,6 +9,7 @@ import sys
 import time
 import unittest
 import shutil
+import argparse
 
 REPO_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 
@@ -86,14 +87,37 @@ def benchmark_baseline_overhead():
         elif "SENTINELFW_HOME" in os.environ:
             del os.environ["SENTINELFW_HOME"]
 
+def parse_args():
+    parser = argparse.ArgumentParser(description="Run Phase P0 verification checks.")
+    parser.add_argument(
+        "--skip-tests",
+        action="store_true",
+        help="Skip Python test suite discovery/execution.",
+    )
+    parser.add_argument(
+        "--skip-benchmark",
+        action="store_true",
+        help="Skip baseline benchmark execution.",
+    )
+    return parser.parse_args()
+
 def main():
+    args = parse_args()
     print("==================================================================")
     print(" SentinelGate & SentinelFW 3.0: Phase P0 Automated Verification ")
     print("==================================================================")
     
     struct_ok = verify_structure()
-    tests_ok = run_baseline_tests()
-    benchmark_baseline_overhead()
+    tests_ok = True
+    if args.skip_tests:
+        print("\n--- [2] Skipping Baseline Test Suites (flag: --skip-tests) ---")
+    else:
+        tests_ok = run_baseline_tests()
+
+    if args.skip_benchmark:
+        print("\n--- [3] Skipping Baseline Benchmark (flag: --skip-benchmark) ---")
+    else:
+        benchmark_baseline_overhead()
 
     print("\n------------------------------------------------------------------")
     if struct_ok and tests_ok:

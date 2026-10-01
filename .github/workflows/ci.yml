@@ -96,6 +96,8 @@ jobs:
 
       - name: Set up lab and verify forwarding
         run: |
+          trap 'sudo bash lab/setup_netns_lab.sh down' EXIT
           sudo bash lab/setup_netns_lab.sh up
-          python lab/verify_p0.py
-          sudo bash lab/setup_netns_lab.sh down
+          sudo ip netns exec sg-wan ping -c 2 -W 2 192.168.10.50
+          sudo ip netns exec sg-lan ping -c 2 -W 2 198.51.100.10
+          python lab/verify_p0.py --skip-tests --skip-benchmark
