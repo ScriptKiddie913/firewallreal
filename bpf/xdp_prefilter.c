@@ -23,8 +23,6 @@ struct {
     __type(value, __u64);
 } blocklist_v4 SEC(".maps");
 
-static void *(*bpf_map_lookup_elem)(void *map, const void *key) = (void *)BPF_FUNC_map_lookup_elem;
-
 SEC("xdp")
 int xdp_prefilter_main(struct xdp_md *ctx) {
     void *data_end = (void *)(long)ctx->data_end;

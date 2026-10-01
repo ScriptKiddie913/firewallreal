@@ -12,10 +12,6 @@
 #define SEC(NAME) __attribute__((section(NAME), used))
 #endif
 
-// BPF helper function prototypes
-static void *(*bpf_map_lookup_elem)(void *map, const void *key) = (void *) BPF_FUNC_map_lookup_elem;
-static __u64 (*bpf_get_current_cgroup_id)(void) = (void *) BPF_FUNC_get_current_cgroup_id;
-
 // Allowed/Blocked process cgroup ID or socket cookie map
 struct {
     __uint(type, BPF_MAP_TYPE_HASH);
