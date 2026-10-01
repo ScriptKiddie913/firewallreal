@@ -7,7 +7,6 @@ import (
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
-	"crypto/rsa"
 	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
@@ -508,4 +507,3 @@ type bufferedConn struct {
 func (b *bufferedConn) Read(p []byte) (int, error) {
 	return b.r.Read(p)
 }
-
