@@ -252,5 +252,66 @@
     "file_integrity_check": true,
     "anti_tampering": true
   },
-  "firewall_policies": []
+  "firewall_policies": [],
+  "zones": {
+    "wan": [
+      "eth0"
+    ],
+    "lan": [
+      "eth1"
+    ],
+    "dmz": [
+      "eth2"
+    ]
+  },
+  "addresses": [
+    {
+      "name": "LAN_Net",
+      "members": [
+        "192.168.10.0/24"
+      ],
+      "type": "ip"
+    },
+    {
+      "name": "DMZ_Web",
+      "members": [
+        "10.0.50.10/32"
+      ],
+      "type": "ip"
+    }
+  ],
+  "services": [
+    {
+      "name": "HTTP_HTTPS",
+      "protocol": "tcp",
+      "ports": "80,443"
+    },
+    {
+      "name": "DNS",
+      "protocol": "udp",
+      "ports": "53"
+    }
+  ],
+  "schedules": [
+    {
+      "name": "business_hours",
+      "days": [
+        "mon",
+        "tue",
+        "wed",
+        "thu",
+        "fri"
+      ],
+      "start_time": "09:00",
+      "end_time": "17:00"
+    }
+  ],
+  "nat_rules": [
+    {
+      "id": 1,
+      "name": "lan-masquerade",
+      "type": "masquerade",
+      "out_interface": "eth0"
+    }
+  ]
 }

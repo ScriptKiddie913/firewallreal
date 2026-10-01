@@ -18,7 +18,7 @@ ADMIN_ONLY_COMMANDS = {"run", "install-service", "cleanup", "harden", "unharden"
 
 def call_daemon_api(method="GET", endpoint="/api/v1/status", data=None):
     try:
-        url = f"http://127.0.0.1:9443{endpoint}"
+        url = f"http://127.0.0.1:443{endpoint}"
         req_data = json.dumps(data).encode("utf-8") if data else None
         headers = {"Content-Type": "application/json"} if data else {}
         req = urllib.request.Request(url, data=req_data, headers=headers, method=method)
@@ -243,6 +243,112 @@ def build_parser():
         p.set_defaults(func=fn)
 
     add("run", cmd_run, "run the firewall daemon (foreground)", ("--no-sniffer", {"action": "store_true"}))
+
+    def cmd_audit_verify(_args):
+        from .mgmt import audit_verify
+        r = audit_verify()
+        print(f"audit chain: {'INTACT' if r.get('ok') else 'BROKEN'} · {r.get('records', 0)} record(s)"
+              + (f" · first bad record: line {r['first_bad']}" if r.get("first_bad") else ""))
+        sys.exit(0 if r.get("ok") else 1)
+
+    add("audit-verify", cmd_audit_verify, "verify the hash-chained audit log")
+
+    def cmd_commit_confirm(_args):
+        from .engine import Engine
+        e = Engine()
+        r = e.commit_stage()
+        print(json.dumps(r, indent=2))
+        print("Changes are now STAGED. Re-run within the TTL to confirm:")
+        print("  python sfwctl.py commit-confirmed     (keep changes)")
+        print("  python sfwctl.py commit-rollback     (revert now)")
+
+    def cmd_commit_confirmed(_args):
+        from .engine import Engine
+        print(json.dumps(Engine().commit_confirm(), indent=2))
+
+    def cmd_commit_rollback(_args):
+        from .engine import Engine
+        print(json.dumps(Engine().commit_rollback("cli manual"), indent=2))
+
+    def cmd_persistence_baseline(_args):
+        from .forensics import PersistenceWatch
+        n = PersistenceWatch(lambda: {}).baseline()
+        print(f"persistence baseline set: {n} watched locations")
+
+    add("commit-confirm", cmd_commit_confirm, "stage config changes (auto-rollback on timeout)")
+    add("commit-confirmed", cmd_commit_confirmed, "confirm staged changes")
+    def cmd_simulate(args):
+        from .policies import FirewallPolicies
+        store = Store()
+        fp = FirewallPolicies(store.cfg)
+        res = fp.simulate(
+            src_ip=args.src, dst_ip=args.dst, port=args.port, proto=args.proto,
+            user=args.user or "", app=args.app or ""
+        )
+        print("\n=== SentinelGate Policy Simulation Report ===")
+        print(f"Matched Rule   : {'#' + str(res['policy_id']) + ' (' + res['policy_name'] + ')' if res['matched'] else 'None (Implicit Deny)'}")
+        print(f"Final Action   : {res['action']}")
+        print(f"Flow Path      : {res['flow_path']}")
+        print(f"Reason         : {res['reason']}")
+        print(f"NAT Translation: {res['nat']['type'].upper() + (' to ' + res['nat']['target'] if res['nat']['target'] else '') if res['nat']['enabled'] else 'None'}")
+        print("\n--- Security Profiles Evaluated ---")
+        for prof, active in res['security_profiles'].items():
+            print(f"  {prof:<16}: {'ENABLED' if active else 'disabled'}")
+        print("============================================\n")
+
+    add("simulate", cmd_simulate, "simulate policy evaluation for virtual packet (Phase 46)",
+        ("--src", {"required": True, "help": "Source IP address"}),
+        ("--dst", {"required": True, "help": "Destination IP address"}),
+        ("--port", {"type": int, "default": 443, "help": "Destination port (default 443)"}),
+        ("--proto", {"default": "tcp", "help": "Transport protocol (tcp/udp/icmp)"}),
+        ("--app", {"default": "", "help": "Application identifier (e.g. HTTPS, DNS)"}),
+        ("--user", {"default": "", "help": "User identity (optional)"}))
+
+    def cmd_fleet_agent(args):
+        from .engine import Engine
+        from .ops import FleetAgent
+        e = Engine()
+        agent = FleetAgent(lambda: e.cfg, e, args.relay, args.key,
+                           interval=int(args.interval))
+        agent.start()
+        print(f"fleet agent running -> {args.relay} (ctrl-c to stop)")
+        try:
+            import time as _t
+            while True:
+                _t.sleep(3600)
+        except KeyboardInterrupt:
+            pass
+
+    def cmd_tls_gencert(_args):
+        from .integrations import generate_self_signed
+        from .common import HOME
+        cert = HOME / "console.crt"
+        key = HOME / "console.key"
+        if generate_self_signed(cert, key):
+            print(f"self-signed cert written: {cert} / {key}")
+            print("set webui_tls: {enabled: true, cert_file: <cert>, key_file: <key>}")
+            print("(for production, use your PKI / Let's Encrypt instead)")
+        else:
+            print("openssl CLI not available — generate a cert manually and set webui_tls")
+            sys.exit(1)
+
+    add("tls-gencert", cmd_tls_gencert, "generate a self-signed console TLS certificate")
+
+    def cmd_integrations(_args):
+        from .integrations import IntegrationManager, GoServiceSupervisor
+        im = IntegrationManager(lambda: {})
+        gs = GoServiceSupervisor(lambda: {})
+        det = im.detect()
+        print(f"suricata: {'PRESENT' if det['suricata'] else 'MISSING (auto-install on start where possible)'}")
+        print(f"clamav:   {'PRESENT' if det['clamav'] else 'MISSING (auto-install on start where possible)'}")
+        print(f"go toolchain: {'PRESENT' if gs.go_available() else 'NOT INSTALLED (go_services supervisor idle)'}")
+
+    add("integrations", cmd_integrations, "show integration (suricata/clamav/go) status")
+
+    add("fleet-agent", cmd_fleet_agent, "report this host to a central SentinelFW relay",
+        ("--relay", {"required": True, "help": "relay base URL, e.g. http://relay:443"}),
+        ("--key", {"required": True, "help": "fleet shared key (set on the relay console)"}),
+        ("--interval", {"default": "30", "help": "heartbeat seconds"}))
     add("status", cmd_status, "show state")
     add("block-ip", cmd_block_ip, "block IP/CIDR (permanent, or timed with --duration)", ("target", {}),
         ("--duration", {}), ("--force", {"action": "store_true"}))
@@ -266,7 +372,40 @@ def build_parser():
     add("sandbox", cmd_sandbox_submit, "detonate a suspicious file in the behavioral sandbox", ("file", {}))
     add("honeypot", cmd_honeypot_sessions, "view honeypot decoy interactions")
     add("integrity", cmd_integrity_check, "verify source code integrity and anti-tampering state")
+    add("modules", cmd_modules, "show runtime status and stats of all 18 SentinelFW 4.0 modules")
+    add("get", cmd_fortios_get, "FortiOS-style get (e.g. 'get system status', 'get firewall policy')", ("target", {"nargs": "+"}))
+    add("set", cmd_fortios_set, "FortiOS-style set (e.g. 'set firewall policy <id> <key> <val>')", ("target", {"nargs": "+"}))
+    add("diagnose", cmd_fortios_diagnose, "FortiOS-style diagnose (e.g. 'diagnose sniffer packet any')", ("target", {"nargs": "+"}))
     return ap
+
+
+def cmd_modules(a):
+    eng = Engine()
+    mods = [
+        ("WAF Reverse Proxy", "waf", "active" if getattr(eng.waf, "running", False) else "standby"),
+        ("Identity Directory", "identity", "active"),
+        ("NAT Manager", "nat", "active"),
+        ("Object Catalog", "objects", "active"),
+        ("Zone Architecture", "zones", "active"),
+        ("App-ID Classifier", "appid", "active"),
+        ("DLP Inspector", "dlp", "active"),
+        ("Playbook Engine", "playbook", "active"),
+        ("Compliance Auditor", "compliance", "active"),
+        ("Correlation Engine", "correlation", "active"),
+        ("Asset & Flow Map", "assetmap", "active"),
+        ("Threat Intel Feeds", "feeds", "active"),
+        ("Advanced Decoys", "decoy_advanced", "active" if getattr(eng.advanced_decoys, "running", False) else "standby"),
+        ("Tarpit Manager", "tarpit", "active" if getattr(eng.tarpit, "running", False) else "standby"),
+        ("Anti-Tamper Watchdog", "watchdog", "active"),
+        ("Fleet Manager", "fleet", "active"),
+        ("Gateway Sync", "gateway_sync", "active" if eng.gateway_sync.configured() else "standby"),
+        ("Kill Chain Tracker", "killchain", "active"),
+        ("Protocol Analyzer", "protocols", "active"),
+    ]
+    print(f"{'Module':<24} {'Identifier':<16} {'Runtime Status'}")
+    print("-" * 55)
+    for title, mod_id, status in mods:
+        print(f"{title:<24} {mod_id:<16} {status.upper()}")
 
 
 def cmd_conns(a):
@@ -378,12 +517,21 @@ def cmd_run(a):
     if eng.cfg.get("suricata", {}).get("enabled", True) and eng.suricata_mgr.is_available():
         eng.suricata_mgr.start()
         threads.append(eng.suricata_ingest)
+    if eng.cfg.get("waf", {}).get("enabled", False):
+        eng.waf.start()
+    if eng.cfg.get("advanced_decoys", {}).get("enabled", False):
+        eng.advanced_decoys.start()
+    if eng.cfg.get("tarpit", {}).get("enabled", False):
+        eng.tarpit.start()
+    if eng.cfg.get("watchdog", {}).get("enabled", True):
+        eng.watchdog.record_baseline(CONFIG_FILE)
+
     if eng.cfg.get("webui", {}).get("enabled", True):
         from .webui import SentinelWebUI
         wcfg = eng.cfg.get("webui", {})
         eng.webui = SentinelWebUI(
             host=wcfg.get("listen", "127.0.0.1"),
-            port=int(wcfg.get("port", 9443)),
+            port=int(wcfg.get("port", 443)),
             engine=eng,
             conntrack=eng.conntrack,
             honeypot=eng.honeypot,
@@ -403,6 +551,12 @@ def cmd_run(a):
         pass
     if eng.webui:
         eng.webui.stop()
+    if hasattr(eng, "waf") and getattr(eng.waf, "running", False):
+        eng.waf.stop()
+    if hasattr(eng, "advanced_decoys") and getattr(eng.advanced_decoys, "running", False):
+        eng.advanced_decoys.stop()
+    if hasattr(eng, "tarpit") and getattr(eng.tarpit, "running", False):
+        eng.tarpit.stop()
     eng.honeypot.stop()
     eng.suricata_mgr.stop()
     time.sleep(1.5)
@@ -449,3 +603,115 @@ WantedBy=multi-user.target
     run(["systemctl", "daemon-reload"])
     rc, out, err = run(["systemctl", "enable", "--now", "sentinelfw"])
     print("installed and started systemd unit sentinelfw" if rc == 0 else f"failed: {out}{err}")
+
+
+def cmd_fortios_get(a):
+    """FortiOS-style get: 'get system status', 'get firewall policy', etc."""
+    tokens = [t.lower() for t in getattr(a, "target", [])]
+    if not tokens:
+        print("Usage: get system status | get firewall policy | get firewall address | get system interface")
+        return
+
+    path = " ".join(tokens)
+    if path.startswith("system status"):
+        eng = Engine()
+        print(f"Version: SentinelGate / SentinelFW v{VERSION}")
+        print(f"Hostname: {socket.gethostname()}")
+        print(f"Backend: {eng.backend.name}")
+        print(f"Operation Mode: {eng.cfg.get('enforcement_profile', 'aggressive')}")
+        print(f"Active IP Bans: {len(eng.store.bans)}")
+        print(f"Blocked Ranges: {len(eng.lists.ipset)}")
+        print(f"Blocked Domains: {len(eng.lists.domains)}")
+        print("HA State: standalone")
+    elif path.startswith("firewall policy"):
+        from .policies import FirewallPolicies
+        fp = FirewallPolicies(Store().cfg)
+        pols = fp.list()
+        print(f"{'ID':<4} {'Name':<24} {'Src':<16} {'Dst':<16} {'Action':<8} {'NAT':<6} {'Status'}")
+        print("-" * 88)
+        for p in pols:
+            src = ",".join(p.get("src", ["any"])[:2])
+            dst = ",".join(p.get("dst", ["any"])[:2])
+            status = "enabled" if p.get("enabled", True) else "disabled"
+            nat = "yes" if p.get("nat") else "no"
+            print(f"{p.get('id', 0):<4} {p.get('name', 'unnamed')[:23]:<24} {src[:15]:<16} {dst[:15]:<16} {p.get('action', 'deny'):<8} {nat:<6} {status}")
+    elif path.startswith("firewall address"):
+        store = Store()
+        ag = store.cfg.get("address_groups", {})
+        print(f"{'Group Name':<24} {'Members'}")
+        print("-" * 60)
+        for name, members in ag.items():
+            print(f"{name:<24} {', '.join(members)}")
+    elif path.startswith("system interface"):
+        from .zones import ZoneManager
+        zm = ZoneManager(Store().cfg)
+        print(f"{'Zone':<12} {'Interfaces'}")
+        print("-" * 40)
+        for z in zm.list_zones():
+            print(f"{z['name']:<12} {', '.join(z['interfaces']) if z['interfaces'] else '(none)'}")
+    elif path.startswith("system modules"):
+        cmd_modules(a)
+    else:
+        print(f"Unknown target: {path}. Try 'get system status' or 'get system modules' or 'get firewall policy'.")
+
+
+def cmd_fortios_set(a):
+    """FortiOS-style set: 'set firewall policy <id> <field> <value>'"""
+    tokens = getattr(a, "target", [])
+    if len(tokens) < 4 or tokens[0].lower() != "firewall" or tokens[1].lower() != "policy":
+        print("Usage: set firewall policy <id> <field> <value>")
+        return
+
+    try:
+        pol_id = int(tokens[2])
+    except ValueError:
+        print("Error: policy ID must be an integer.")
+        return
+
+    field = tokens[3].lower()
+    value = " ".join(tokens[4:])
+    from .policies import FirewallPolicies
+    store = Store()
+    fp = FirewallPolicies(store.cfg, config_persist=store.save)
+    val = value.lower() == "true" if field == "enabled" else value
+    res = fp.update(pol_id, {field: val})
+    if "error" in res:
+        print(f"Error: {res['error']}")
+    else:
+        print(f"Updated policy {pol_id}: {field} = {value}")
+
+
+def cmd_fortios_diagnose(a):
+    """FortiOS-style diagnose: 'diagnose sniffer packet <interface> <filter> <count>'"""
+    tokens = getattr(a, "target", [])
+    if not tokens:
+        print("Usage: diagnose sniffer packet <interface> [filter] [count]")
+        return
+
+    sub = tokens[0].lower()
+    if sub == "sniffer" and len(tokens) >= 2 and tokens[1].lower() == "packet":
+        iface = tokens[2] if len(tokens) > 2 else "any"
+        flt = tokens[3] if len(tokens) > 3 else "all"
+        count = int(tokens[4]) if len(tokens) > 4 and tokens[4].isdigit() else 5
+        print(f"Starting packet sniffer on '{iface}' (filter: {flt}, max {count} packets)...")
+        from .detector import Sniffer
+        captured = []
+        def _cb(frame):
+            if len(captured) < count:
+                captured.append(frame)
+                print(f"  [{len(captured)}] {len(frame)} bytes captured")
+        sn = Sniffer(_cb)
+        t = threading.Thread(target=sn.run, daemon=True)
+        t.start()
+        for _ in range(30):
+            if len(captured) >= count:
+                break
+            time.sleep(0.1)
+        sn.stop()
+        print(f"Completed: captured {len(captured)} packets.")
+    elif sub == "sys":
+        eng = Engine()
+        print(f"System status: Engine active={eng.running}, Backend={eng.backend.name}")
+    else:
+        print(f"Unknown diagnose command: {' '.join(tokens)}")
+

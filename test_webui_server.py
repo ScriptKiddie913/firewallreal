@@ -39,7 +39,9 @@ eng.conntrack.start()
 # Optional synthetic packet stream for offline demo/testing
 if os.environ.get("SENTINELFW_SIM") == "1":
     from sentinelfw.netlens import DemoPacketSource
-    DemoPacketSource(eng.recorder, banned={"203.0.113.66"}).start()
+    _demo = DemoPacketSource(eng.recorder, banned={"203.0.113.66"})
+    _demo.ring = getattr(eng, "pcap_ring", None)
+    _demo.start()
     print(">>> Demo packet simulator ACTIVE (synthetic traffic)")
 
 # Spawn the default honeypot services so the deception page has data

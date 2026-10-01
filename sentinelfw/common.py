@@ -6,7 +6,7 @@ from pathlib import Path
 PKG_DIR = Path(__file__).resolve().parent
 
 
-VERSION = "3.0.0"
+VERSION = "4.0.0"
 
 
 IS_WIN = os.name == "nt"
@@ -16,7 +16,20 @@ IS_LINUX = sys.platform.startswith("linux")
 
 
 if IS_WIN:
-    HOME = Path(os.environ.get("SENTINELFW_HOME") or os.path.join(os.environ.get("ProgramData", r"C:\ProgramData"), "SentinelFW"))
+    _env_home = os.environ.get("SENTINELFW_HOME")
+    if _env_home:
+        HOME = Path(_env_home)
+    else:
+        _pdata = Path(os.environ.get("ProgramData", r"C:\ProgramData")) / "SentinelFW"
+        try:
+            _pdata.mkdir(parents=True, exist_ok=True)
+            _test_f = _pdata / ".write_perm_check"
+            _test_f.touch(exist_ok=True)
+            _test_f.unlink(missing_ok=True)
+            HOME = _pdata
+        except (PermissionError, OSError):
+            HOME = Path.home() / ".sentinelfw"
+            HOME.mkdir(parents=True, exist_ok=True)
     HOSTS = Path(os.environ.get("SystemRoot", r"C:\Windows")) / "System32" / "drivers" / "etc" / "hosts"
 else:
     HOME = Path(os.environ.get("SENTINELFW_HOME") or "/var/lib/sentinelfw")
@@ -73,9 +86,12 @@ def is_admin():
     return os.geteuid() == 0
 
 
-def atomic_write(path, text):
+def atomic_write(path, data, binary=False):
     tmp = path.with_name(path.name + ".tmp")
-    tmp.write_text(text, encoding="utf-8")
+    if binary or isinstance(data, (bytes, bytearray)):
+        tmp.write_bytes(data)
+    else:
+        tmp.write_text(str(data), encoding="utf-8")
     os.replace(tmp, path)
 
 
@@ -128,14 +144,45 @@ _flog = logging.getLogger("sentinelfw.events")
 
 
 def setup_logging():
-    LOGS.mkdir(parents=True, exist_ok=True)
     if _flog.handlers:
         return
-    h = logging.handlers.RotatingFileHandler(LOGS / "events.jsonl", maxBytes=25_000_000, backupCount=8, encoding="utf-8")
-    h.setFormatter(logging.Formatter("%(message)s"))
-    _flog.addHandler(h)
+    try:
+        LOGS.mkdir(parents=True, exist_ok=True)
+        h = logging.handlers.RotatingFileHandler(LOGS / "events.jsonl", maxBytes=25_000_000, backupCount=8, encoding="utf-8")
+        h.setFormatter(logging.Formatter("%(message)s"))
+        _flog.addHandler(h)
+    except (PermissionError, OSError):
+        import tempfile
+        user_logs = Path(tempfile.gettempdir()) / "sentinelfw_logs"
+        try:
+            user_logs.mkdir(parents=True, exist_ok=True)
+            h = logging.handlers.RotatingFileHandler(user_logs / "events.jsonl", maxBytes=25_000_000, backupCount=8, encoding="utf-8")
+            h.setFormatter(logging.Formatter("%(message)s"))
+            _flog.addHandler(h)
+        except Exception:
+            _flog.addHandler(logging.NullHandler())
     _flog.setLevel(logging.INFO)
     _flog.propagate = False
+
+
+def close_event_logging():
+    """Closes and detaches the events.jsonl file handler (no re-open).
+
+    The open handle must be released BEFORE the file is deleted (required on
+    Windows, avoids writing to an orphaned inode on Linux).
+    """
+    for h in list(_flog.handlers):
+        try:
+            h.close()
+        except Exception:
+            pass
+        _flog.removeHandler(h)
+
+
+def reopen_logging():
+    """Closes then re-attaches the events.jsonl handler on a fresh file."""
+    close_event_logging()
+    setup_logging()
 
 
 _EVENT_LISTENERS = []
@@ -147,6 +194,11 @@ def register_event_listener(fn):
 
 
 def event(kind, sev="info", **kw):
+    # defensive: a caller passing kind/sev/ts inside **kw (e.g. via dict(stats))
+    # must not raise "got multiple values for keyword argument"
+    kw.pop("kind", None)
+    kw.pop("sev", None)
+    kw.pop("ts", None)
     rec = {"ts": time.strftime("%Y-%m-%dT%H:%M:%S%z"), "kind": kind, "severity": sev}
     rec.update(kw)
     try:

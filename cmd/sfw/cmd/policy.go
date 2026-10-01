@@ -3,29 +3,31 @@ package cmd
 
 import (
 	"encoding/json"
+	"flag"
 	"fmt"
 	"os"
 
 	"github.com/sentinelgate/sentinelgate/pkg/config"
-	"github.com/spf13/cobra"
-	"gopkg.in/yaml.v3"
 )
 
 var (
-	configDir string
-	jsonOutput bool
+	configDir  = "/etc/sentinelgate"
+	jsonOutput = false
 )
 
-// PolicyCmd represents the policy management command group.
-var PolicyCmd = &cobra.Command{
-	Use:   "policy",
-	Short: "Inspect and manage firewall policies",
-}
+func RunPolicy(args []string) {
+	if len(args) == 0 {
+		fmt.Println("Usage: sfw policy <list|check> [options]")
+		os.Exit(1)
+	}
 
-var policyListCmd = &cobra.Command{
-	Use:   "list",
-	Short: "List active firewall policies",
-	Run: func(cmd *cobra.Command, args []string) {
+	switch args[0] {
+	case "list":
+		fs := flag.NewFlagSet("policy list", flag.ExitOnError)
+		fs.StringVar(&configDir, "config-dir", "/etc/sentinelgate", "Configuration state directory")
+		fs.BoolVar(&jsonOutput, "json", false, "Output in JSON format")
+		fs.Parse(args[1:])
+
 		cm, err := config.NewConfigManager(configDir)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error loading configuration: %v\n", err)
@@ -51,15 +53,13 @@ var policyListCmd = &cobra.Command{
 			fmt.Printf("%-4d  %-24s  %-10s  %-10s  %-8s  %-12s  %s\n",
 				p.ID, p.Name, p.SrcZone, p.DstZone, p.Action, natDesc, svcDesc)
 		}
-	},
-}
 
-var policyCheckCmd = &cobra.Command{
-	Use:   "check [file.yaml]",
-	Short: "Validate candidate policy syntax and structural integrity",
-	Args:  cobra.ExactArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
-		filePath := args[0]
+	case "check":
+		if len(args) < 2 {
+			fmt.Fprintln(os.Stderr, "Usage: sfw policy check <candidate.json>")
+			os.Exit(1)
+		}
+		filePath := args[1]
 		data, err := os.ReadFile(filePath)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error reading file %s: %v\n", filePath, err)
@@ -67,8 +67,8 @@ var policyCheckCmd = &cobra.Command{
 		}
 
 		var candidate config.GatewayConfig
-		if err := yaml.Unmarshal(data, &candidate); err != nil {
-			fmt.Fprintf(os.Stderr, "YAML parsing error: %v\n", err)
+		if err := json.Unmarshal(data, &candidate); err != nil {
+			fmt.Fprintf(os.Stderr, "JSON parsing error: %v\n", err)
 			os.Exit(1)
 		}
 
@@ -78,12 +78,8 @@ var policyCheckCmd = &cobra.Command{
 		}
 
 		fmt.Println("[VALIDATION SUCCESS] Configuration syntax, zones, and rules are valid.")
-	},
-}
-
-func init() {
-	PolicyCmd.PersistentFlags().StringVar(&configDir, "config-dir", "/etc/sentinelgate", "Configuration state directory")
-	PolicyCmd.PersistentFlags().BoolVar(&jsonOutput, "json", false, "Output in JSON format")
-	PolicyCmd.AddCommand(policyListCmd)
-	PolicyCmd.AddCommand(policyCheckCmd)
+	default:
+		fmt.Fprintf(os.Stderr, "Unknown policy subcommand: %s\n", args[0])
+		os.Exit(1)
+	}
 }

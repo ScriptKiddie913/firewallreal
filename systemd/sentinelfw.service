@@ -1,14 +1,32 @@
 [Unit]
-Description=SentinelFW host firewall and threat response
+Description=SentinelFW host firewall, unified threat response, and ZTNA gateway
 After=network-online.target
 Wants=network-online.target
+Documentation=https://github.com/sentinelfw/sentinelfw
 
 [Service]
+Type=simple
 WorkingDirectory=/opt/sentinelfw
 ExecStart=/usr/bin/python3 /opt/sentinelfw/sfwctl.py run
 Restart=always
 RestartSec=2
 StartLimitIntervalSec=0
+
+# Defense-in-Depth Sandbox & Least Privilege (Phase 27)
+ProtectSystem=strict
+ProtectHome=yes
+NoNewPrivileges=yes
+CapabilityBoundingSet=CAP_NET_ADMIN CAP_NET_RAW CAP_NET_BIND_SERVICE
+AmbientCapabilities=CAP_NET_ADMIN CAP_NET_RAW CAP_NET_BIND_SERVICE
+PrivateTmp=yes
+ProtectKernelTunables=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectKernelModules=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_NETLINK AF_UNIX
+RestrictRealtime=yes
+MemoryDenyWriteExecute=yes
+ReadWritePaths=/var/log/sentinelfw /etc/sentinelfw /run/sentinelfw /var/lib/sentinelfw
 
 [Install]
 WantedBy=multi-user.target

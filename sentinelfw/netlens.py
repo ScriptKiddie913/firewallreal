@@ -262,8 +262,19 @@ def _parse_l7(rec, layers, payload: bytes, sport: int, dport: int, direction):
             return
         except Exception:
             pass
-    # TLS ClientHello SNI
+    # TLS ClientHello SNI + JA3 fingerprint
     if payload[0] == 0x16 and payload[:1] == b"\x16" and len(payload) > 43:
+        try:
+            from .forensics import ja3_from_client_hello
+            j = ja3_from_client_hello(payload)
+            if j:
+                layers["tls"] = {"sni": j["sni"], "type": "ClientHello",
+                                 "ja3": j["ja3"], "ja3_string": j["ja3_string"]}
+                rec["protocol"] = "TLS"
+                rec["info"] = f"Client Hello (SNI: {j['sni'] or '?'}) JA3: {j['ja3']}"
+                return
+        except Exception:
+            pass
         try:
             # TLS record: handshake(22), version, length
             hs_len = struct.unpack("!I", b"\x00" + payload[3:6])[0]
@@ -284,7 +295,11 @@ def _parse_l7(rec, layers, payload: bytes, sport: int, dport: int, direction):
                         et, el = struct.unpack("!HH", payload[o:o + 4])
                         if et == 0:  # server_name
                             sni = payload[o + 4 + 5:o + 4 + 5 + struct.unpack("!H", payload[o + 4 + 3:o + 4 + 5])[0]]
-                            layers["tls"] = {"sni": sni.decode("idna", "replace"), "type": "ClientHello"}
+                            try:
+                                sni_txt = sni.decode("idna")
+                            except Exception:
+                                sni_txt = sni.decode("utf-8", "replace")
+                            layers["tls"] = {"sni": sni_txt, "type": "ClientHello"}
                             rec["protocol"] = "TLS"
                             rec["info"] = f"Client Hello (SNI: {layers['tls']['sni']})"
                             return
@@ -484,3 +499,6 @@ class DemoPacketSource(threading.Thread):
                 if remote in self.banned:
                     parsed["verdict"], parsed["severity"] = "BLOCKED", "critical"
                 self.rec.record(parsed)
+                ring = getattr(self, "ring", None)
+                if ring is not None:
+                    ring.add(time.time(), frame, eth=True)

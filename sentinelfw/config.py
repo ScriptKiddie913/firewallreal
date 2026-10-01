@@ -21,13 +21,19 @@ DEFAULT_CONFIG = {
     "enforcement_profile": "aggressive",
     "exec_watch": True,
     "actions": {
-        "blocklisted_ip_connection": "kill",
+        # Traffic to banned IPs is already dropped by the kernel firewall;
+        # killing the connecting process proved far too destructive (it took
+        # down every application that happened to talk to a banned CDN).
+        "blocklisted_ip_connection": "alert",
         "blocked_program": "kill+file",
         "malicious_hash": "kill+file",
         "temp_dir_network": "kill+file",
         "deleted_executable": "kill",
-        "blocked_port_connection": "kill",
+        "blocked_port_connection": "alert",
     },
+    "policy_version": 10,
+    # Management networks that are never banned or redirected (SSH/admin hosts)
+    "trusted_ips": ["10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"],
     "malicious_file_action": "quarantine",
     "quarantine_retention_days": 7,
     "blocked_remote_ports": [],
@@ -139,7 +145,107 @@ DEFAULT_CONFIG = {
             "rdp": {"enabled": False, "port": 3390},
             "telnet": {"enabled": True, "port": 2323},
             "smtp": {"enabled": False, "port": 2525},
+            # realistic SSH tarpit for automated seeker bots (masscan/zgrab/shodan)
+            "tarpit": {"enabled": True, "port": 22222},
         },
+        # ban IPs that touch the tarpit automatically (protected IPs are never banned)
+        "tarpit_auto_block": True,
+    },
+    "webui_tls": {
+        # console TLS (bring-your-own cert; generate one: sfwctl tls-gencert)
+        "enabled": False,
+        "cert_file": "/etc/sentinelfw/console.crt",
+        "key_file": "/etc/sentinelfw/console.key",
+    },
+    "integrations": {
+        # Suricata / ClamAV auto-install requires explicit opt-in (disabled by default)
+        "auto_install": False,
+    },
+    "go_services": {
+        # supervisor for the Go sentinelgated daemon (skeleton — see docs)
+        "enabled": False,
+        "build_if_missing": True,
+        "listen": ":8443",
+    },
+    "dns_server": {
+        # filtering DNS forwarder (DNS-layer blocking, off until enabled)
+        "enabled": False,
+        "listen": "0.0.0.0",
+        "port": 53,
+        "upstream": ["1.1.1.1", "8.8.8.8"],
+        "sinkhole_ip": "0.0.0.0",
+    },
+    "fleet": {
+        # v1 monitoring fleet: this console acts as the relay
+        "enabled": False,
+        "shared_key": "",
+        "heartbeat_timeout_minutes": 5,
+    },
+    "pcap_ring": {
+        # forensic capture: keep raw frames in memory, dump .pcap around alerts
+        "enabled": False,
+        "seconds": 20,
+        "max_mb": 64,
+    },
+    "persistence_watch": {
+        # alert when cron / systemd / Run keys / autostart change
+        "enabled": False,
+        "interval_minutes": 10,
+    },
+    "commit_confirm": {
+        # staged config changes auto-rollback if not confirmed within TTL
+        "ttl_minutes": 5,
+        "auto_stage_policies": False,
+    },
+    "ja3_blocklist": [],
+    "pcap_ring": {
+        # forensic capture: keep raw frames in memory, dump .pcap around alerts
+        "enabled": False,
+        "seconds": 20,
+        "max_mb": 64,
+    },
+    "persistence_watch": {
+        # alert when cron / systemd / Run keys / autostart change
+        "enabled": False,
+        "interval_minutes": 10,
+    },
+    "commit_confirm": {
+        # staged config changes auto-rollback if not confirmed within TTL
+        "ttl_minutes": 5,
+        "auto_stage_policies": False,
+    },
+    "ja3_blocklist": [],
+    "management": {
+        # session-based console auth (basic auth remains available for scripts)
+        "sessions": True,
+        "session_ttl_minutes": 480,
+        "audit": True,             # hash-chained audit log of management actions
+        "totp_enabled": False,    # 2FA — enable via Settings → Security
+        "totp_secret": "",
+        "recovery_codes": [],
+    },
+    "sigma": {
+        "enabled": True,
+    },
+    "syslog": {
+        "enabled": False,
+        "host": "",
+        "port": 514,
+        "proto": "udp",
+        "format": "rfc5424",
+    },
+    "detections": {
+        # entries: {"ip": "1.2.3.4"} or {"reason_contains": "signature:cmd_injection_pipes"}
+        "allowlist": [],
+        # learning mode: detections still logged + shown, bans suppressed
+        "learning_mode": False,
+    },
+    "clamav": {
+        "enabled": True,
+        "daily_update": True,   # freshclam once a day around 03:30 local time
+        "update_hour": 3.5,
+        "auto_quarantine": False,
+        "scan_paths": [],
     },
     "canary": {
         "enabled": True,
@@ -171,11 +277,22 @@ DEFAULT_CONFIG = {
     },
     "webui": {
         "enabled": True,
-        "listen": "0.0.0.0",
+        "listen": "127.0.0.1",
         "port": 443,
-        "tls": True,
-        "admin_password_hash": "",
+        "username": "operator",
+        # scrypt or sha256 of the dashboard password. Empty hash until first-run setup.
+        "password_hash": "",
+        "password_initialized": False,
+        "tls": False,
         "session_timeout_minutes": 60,
+    },
+    "sarvam": {
+        "api_key": "",
+        "model": "sarvam-105b",
+        # auto-analyze high-risk unknown IPs (rate-limited, key required)
+        "auto_analyze": True,
+        "risk_threshold": 65,
+        "max_auto_per_hour": 4,
     },
     "anomaly_detection": {
         "enabled": True,
@@ -227,6 +344,40 @@ DEFAULT_CONFIG = {
         "request_interval_seconds": 16,
         "max_scans_per_hour": 220,
     },
+    "waf": {
+        "enabled": True,
+        "mode": "monitor",
+        "listen_port": 8080,
+        "upstreams": [],
+    },
+    "dlp": {
+        "enabled": True,
+        "action": "alert",
+        "inspect_uploads": True,
+    },
+    "identity": {
+        "enabled": True,
+        "auth_source": "local",
+        "ldap": {"enabled": False},
+        "radius": {"enabled": False},
+        "oidc": {"enabled": False},
+    },
+    "microsegmentation": {
+        "enabled": True,
+        "mode": "learning",
+    },
+    "ztna": {
+        "enabled": True,
+        "strict_posture": False,
+    },
+    "wireguard": {
+        "enabled": False,
+        "listen_port": 51820,
+    },
+    "otlp": {
+        "enabled": False,
+        "endpoint": "http://localhost:4318/v1/logs",
+    },
     "firewall_policies": [],
 }
 
@@ -254,9 +405,163 @@ class Store:
             if not (LISTS / n).exists():
                 atomic_write(LISTS / n, header)
         self.cfg, self.bans, self.offenses, self.meta = {}, {}, {}, {}
+        self._write_back = False
         self._cfg_mtime = 0
         self.load_cfg()
         self.load_state()
+
+    def _migrate_policy(self):
+        """One-time migration of destructive defaults from older configs."""
+        try:
+            cur_ver = int(self.cfg.get("policy_version", 1))
+            if cur_ver < 10:
+                self.cfg.setdefault("waf", {"enabled": True, "mode": "monitor", "listen_port": 8080, "upstreams": []})
+                self.cfg.setdefault("dlp", {"enabled": True, "action": "alert", "inspect_uploads": True})
+                self.cfg.setdefault("identity", {"enabled": True, "auth_source": "local", "ldap": {"enabled": False}, "radius": {"enabled": False}, "oidc": {"enabled": False}})
+                self.cfg.setdefault("microsegmentation", {"enabled": True, "mode": "learning"})
+                self.cfg.setdefault("ztna", {"enabled": True, "strict_posture": False})
+                self.cfg.setdefault("wireguard", {"enabled": False, "listen_port": 51820})
+                self.cfg.setdefault("otlp", {"enabled": False, "endpoint": "http://localhost:4318/v1/logs"})
+                self.cfg["policy_version"] = 10
+                self._write_back = True
+            if cur_ver < 9:
+                w = self.cfg.setdefault("webui", {})
+                if w.get("password_hash") == "5912bf81c5053cf577f68fc4466b115f50ca6c71638ca26e746978f15881436c":
+                    w["password_hash"] = ""
+                    w["password_initialized"] = False
+                else:
+                    w.setdefault("password_initialized", bool(w.get("password_hash")))
+                integ = self.cfg.setdefault("integrations", {})
+                integ.setdefault("auto_install", False)
+                self._write_back = True
+            if cur_ver < 8:
+                self.cfg.setdefault("webui_tls", {"enabled": False,
+                                                  "cert_file": "/etc/sentinelfw/console.crt",
+                                                  "key_file": "/etc/sentinelfw/console.key"})
+                self.cfg.setdefault("integrations", {"auto_install": False})
+                self.cfg.setdefault("go_services", {"enabled": False,
+                                                     "build_if_missing": True,
+                                                     "listen": ":8443"})
+                self._write_back = True
+            if cur_ver < 7:
+                self.cfg.setdefault("dns_server", {"enabled": False, "listen": "0.0.0.0",
+                                                   "port": 53,
+                                                   "upstream": ["1.1.1.1", "8.8.8.8"],
+                                                   "sinkhole_ip": "0.0.0.0"})
+                self.cfg.setdefault("fleet", {"enabled": False, "shared_key": "",
+                                              "heartbeat_timeout_minutes": 5})
+                mg = self.cfg.setdefault("management", {})
+                mg.setdefault("vault", {"enabled": False, "key": "",
+                                        "seal_interval_seconds": 60})
+                self._write_back = True
+            if cur_ver < 6:
+                self.cfg.setdefault("pcap_ring", {"enabled": False, "seconds": 20, "max_mb": 64})
+                self.cfg.setdefault("persistence_watch", {"enabled": False, "interval_minutes": 10})
+                self.cfg.setdefault("commit_confirm", {"ttl_minutes": 5,
+                                                       "auto_stage_policies": False})
+                self.cfg.setdefault("ja3_blocklist", [])
+                self._write_back = True
+            if cur_ver < 5:
+                self.cfg.setdefault("management", {"sessions": True, "session_ttl_minutes": 480,
+                                                   "audit": True, "totp_enabled": False,
+                                                   "totp_secret": "", "recovery_codes": []})
+                self.cfg.setdefault("sigma", {"enabled": True})
+                self.cfg.setdefault("syslog", {"enabled": False, "host": "", "port": 514,
+                                               "proto": "udp", "format": "rfc5424"})
+                self.cfg.setdefault("detections", {"allowlist": [], "learning_mode": False})
+                self._write_back = True
+            if cur_ver < 4:
+                hp = self.cfg.setdefault("honeypot", {})
+                svc = hp.setdefault("services", {})
+                if "tarpit" not in svc:
+                    svc["tarpit"] = {"enabled": True, "port": 22222}
+                if "tarpit_auto_block" not in hp:
+                    hp["tarpit_auto_block"] = True
+                self.cfg.setdefault("clamav", {"enabled": True, "daily_update": True,
+                                               "update_hour": 3.5, "auto_quarantine": False})
+                self._write_back = True
+            if cur_ver < 3:
+                w = self.cfg.setdefault("webui", {})
+                w.setdefault("listen", "127.0.0.1")
+                w["port"] = 443
+                if not w.get("username"):
+                    w["username"] = "operator"
+                if not w.get("password_hash"):
+                    w["password_hash"] = DEFAULT_CONFIG["webui"]["password_hash"]
+                self._write_back = True
+            if cur_ver < 2:
+                acts = self.cfg.setdefault("actions", {})
+                for key in ("blocklisted_ip_connection", "blocked_port_connection"):
+                    if acts.get(key) in ("kill", "kill+file"):
+                        acts[key] = "alert"
+                self._write_back = True
+
+            if self._write_back:
+                self.cfg["policy_version"] = max(int(self.cfg.get("policy_version", 1)), 10)
+                atomic_write(CONFIG_FILE, json.dumps(self.cfg, indent=2))
+                self._cfg_mtime = CONFIG_FILE.stat().st_mtime_ns
+                event("config_migrated", "info", version=10, note="config migrated to policy_version 10")
+        except Exception as e:  # noqa: BLE001
+            event("config_migration_error", "low", error=str(e))
+        self._apply_env_overrides()
+
+    def _apply_env_overrides(self):
+        """API keys can come from the environment instead of plaintext config.
+
+        SFW_VT_KEY, SFW_TELEGRAM_TOKEN, SFW_SARVAM_KEY, SFW_FLEET_KEY override
+        the matching config values in memory. Originals are kept in _env_hidden
+        and restored by persist_env_safe(), so env-injected secrets are never
+        written back into config.json.
+        """
+        import os as _os
+        self._env_hidden = {}
+        mapping = (
+            ("threat_intel", "virustotal_api_key", "SFW_VT_KEY"),
+            ("telegram", "bot_token", "SFW_TELEGRAM_TOKEN"),
+            ("__root__", "virustotal_api_key", "SFW_VT_KEY"),  # legacy top-level
+            ("sarvam", "api_key", "SFW_SARVAM_KEY"),
+            ("fleet", "shared_key", "SFW_FLEET_KEY"),
+        )
+        for section, field, envvar in mapping:
+            val = _os.environ.get(envvar, "").strip()
+            if not val:
+                continue
+            if section == "__root__":
+                self._env_hidden[(section, field)] = self.cfg.get(field)
+                self.cfg[field] = val
+            else:
+                sec = self.cfg.setdefault(section, {})
+                self._env_hidden[(section, field)] = sec.get(field)
+                sec[field] = val
+
+    def persist_env_safe(self, dump_fn):
+        """Runs dump_fn with env overrides temporarily removed, then reapplies."""
+        hidden = getattr(self, "_env_hidden", {})
+        saved = {}
+        for k, v in hidden.items():
+            section, field = k
+            if section == "__root__":
+                saved[k] = self.cfg.get(field)
+                if v is None:
+                    self.cfg.pop(field, None)
+                else:
+                    self.cfg[field] = v
+            else:
+                sec = self.cfg.setdefault(section, {})
+                saved[k] = sec.get(field)
+                sec[field] = v
+        try:
+            return dump_fn()
+        finally:
+            for k, val in saved.items():
+                section, field = k
+                if section == "__root__":
+                    if val is None:
+                        self.cfg.pop(field, None)
+                    else:
+                        self.cfg[field] = val
+                else:
+                    self.cfg.setdefault(section, {})[field] = val
 
     def load_cfg(self):
         try:
@@ -265,6 +570,14 @@ class Store:
                 return False
             self.cfg = deep_merge(DEFAULT_CONFIG, json.loads(CONFIG_FILE.read_text(encoding="utf-8")))
             self._cfg_mtime = m
+            self._migrate_policy()
+            try:
+                from .vault import vault
+                if vault.migrate_plaintext_keys(self.cfg):
+                    atomic_write(CONFIG_FILE, json.dumps(self.cfg, indent=2))
+                    self._cfg_mtime = CONFIG_FILE.stat().st_mtime_ns
+            except Exception as vex:
+                event("vault_migration_error", "low", error=str(vex))
             return True
         except (OSError, ValueError) as e:
             event("config_error", "high", error=e)

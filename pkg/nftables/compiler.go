@@ -27,6 +27,17 @@ func (c *Compiler) Compile() (string, error) {
 	b.WriteString("# SentinelGate Atomic Ruleset Compiler\n")
 	b.WriteString(fmt.Sprintf("# Generated: %s\n\n", c.cfg.Version))
 
+	// Run policy optimizer analysis
+	opt := NewPolicyOptimizer(c.cfg)
+	diags := opt.Analyze()
+	if len(diags) > 0 {
+		b.WriteString("# --- Policy Diagnostics & Warnings ---\n")
+		for _, d := range diags {
+			b.WriteString(fmt.Sprintf("# [%s] Policy %d (%s): %s\n", d.Severity, d.PolicyID, d.RuleName, d.Message))
+		}
+		b.WriteString("# ------------------------------------\n\n")
+	}
+
 	// Flush and recreate the sentinelgate table
 	b.WriteString("flush table inet sentinelgate\n")
 	b.WriteString("delete table inet sentinelgate\n")
@@ -46,12 +57,26 @@ func (c *Compiler) Compile() (string, error) {
 		}
 	}
 
-	// 2. Address Group Sets (O(1) interval sets)
+	// 2. Address Group Sets (O(1) interval sets, IPv4 and IPv6)
 	for _, ag := range c.cfg.Addresses {
-		setName := fmt.Sprintf("ag_%s", sanitizeName(ag.Name))
-		b.WriteString(fmt.Sprintf("\tset %s {\n\t\ttype ipv4_addr\n\t\tflags interval\n", setName))
-		if len(ag.Members) > 0 {
-			b.WriteString(fmt.Sprintf("\t\telements = { %s }\n", strings.Join(ag.Members, ", ")))
+		setName4 := fmt.Sprintf("ag_%s", sanitizeName(ag.Name))
+		setName6 := fmt.Sprintf("ag6_%s", sanitizeName(ag.Name))
+		var v4Members, v6Members []string
+		for _, m := range ag.Members {
+			if strings.Contains(m, ":") {
+				v6Members = append(v6Members, m)
+			} else {
+				v4Members = append(v4Members, m)
+			}
+		}
+		b.WriteString(fmt.Sprintf("\tset %s {\n\t\ttype ipv4_addr\n\t\tflags interval\n", setName4))
+		if len(v4Members) > 0 {
+			b.WriteString(fmt.Sprintf("\t\telements = { %s }\n", strings.Join(v4Members, ", ")))
+		}
+		b.WriteString("\t}\n")
+		b.WriteString(fmt.Sprintf("\tset %s {\n\t\ttype ipv6_addr\n\t\tflags interval\n", setName6))
+		if len(v6Members) > 0 {
+			b.WriteString(fmt.Sprintf("\t\telements = { %s }\n", strings.Join(v6Members, ", ")))
 		}
 		b.WriteString("\t}\n")
 	}
@@ -93,8 +118,9 @@ func (c *Compiler) Compile() (string, error) {
 	b.WriteString("\t\t# ICMP rate limiting\n")
 	b.WriteString("\t\tip protocol icmp icmp type echo-request limit rate 10/second accept\n")
 	b.WriteString("\t\tip6 nexthdr ipv6-icmp accept\n")
-	b.WriteString("\t\t# Management Plane Ports (mTLS 8443, SSH 22)\n")
-	b.WriteString("\t\ttcp dport { 22, 8443 } accept\n")
+	b.WriteString("\t\t# Management Plane Ports (mTLS 8443, SSH 22) restricted to local and mgmt interfaces\n")
+	b.WriteString("\t\tiifname \"lo\" tcp dport { 22, 8443 } accept\n")
+	b.WriteString("\t\tiifname \"mgmt0\" tcp dport { 22, 8443 } accept\n")
 	b.WriteString("\t\t# DHCP server port for local LAN interfaces\n")
 	b.WriteString("\t\tudp dport 67 accept\n")
 	b.WriteString("\t}\n\n")
@@ -102,10 +128,6 @@ func (c *Compiler) Compile() (string, error) {
 	// --- Forward Chain (Transit Traffic & Flowtable Jump) ---
 	b.WriteString("\tchain forward {\n")
 	b.WriteString("\t\ttype filter hook forward priority 0; policy drop;\n")
-	if c.cfg.System.FlowtableOffload {
-		b.WriteString("\t\t# Flowtable fast-path bypass for established sessions\n")
-		b.WriteString("\t\tip protocol { tcp, udp } flow add @ft\n")
-	}
 	b.WriteString("\t\tct state established,related accept\n")
 	b.WriteString("\t\tct state invalid drop\n\n")
 
@@ -120,6 +142,9 @@ func (c *Compiler) Compile() (string, error) {
 	// --- Output Chain (Appliance Generated Egress) ---
 	b.WriteString("\tchain output {\n")
 	b.WriteString("\t\ttype filter hook output priority 0; policy accept;\n")
+	b.WriteString("\t\tct state established,related accept\n")
+	b.WriteString("\t\tct state invalid drop\n")
+	b.WriteString("\t\toifname \"lo\" accept\n")
 	b.WriteString("\t}\n\n")
 
 	// --- Postrouting / SNAT Chain ---
@@ -228,9 +253,9 @@ func (c *Compiler) compilePolicyRule(b *bytes.Buffer, pol config.PolicyRule) {
 		}
 	}
 
-	// Inspection Profile (NFQUEUE jump to Suricata)
+	// Inspection Profile (NFQUEUE multi-queue distribution to Suricata)
 	if pol.Inspection.IPSProfile != "" {
-		clauses = append(clauses, "queue num 0 bypass")
+		clauses = append(clauses, "queue num 0-3 bypass")
 	}
 
 	// Logging
@@ -238,14 +263,25 @@ func (c *Compiler) compilePolicyRule(b *bytes.Buffer, pol config.PolicyRule) {
 		clauses = append(clauses, fmt.Sprintf("log prefix \"[SGW-POL-%d] \"", pol.ID))
 	}
 
-	// Final Action
+	// Final Action & Fastpath Offload Eligibility
 	switch pol.Action {
 	case config.ActionAccept:
-		clauses = append(clauses, "counter accept")
+		// Eligible for hardware / flowtable fastpath only if NO deep proxy inspection is requested
+		if c.cfg.System.FlowtableOffload && pol.Inspection.IPSProfile == "" && !pol.Inspection.AVScan && !pol.Inspection.TLSInspect && !pol.Inspection.DLPEnabled && pol.Inspection.WebFilter == "" {
+			clauses = append(clauses, "flow add @ft counter accept")
+		} else {
+			clauses = append(clauses, "counter accept")
+		}
 	case config.ActionDeny:
 		clauses = append(clauses, "counter drop")
 	case config.ActionReject:
 		clauses = append(clauses, "counter reject")
+	case config.ActionRateLimit:
+		clauses = append(clauses, "limit rate 100/second counter accept")
+	case config.ActionQuarantine, config.ActionRedirect, config.ActionTarpit, config.ActionDecoy:
+		clauses = append(clauses, "counter drop")
+	case config.ActionLog:
+		clauses = append(clauses, "log prefix \"[SGW-LOG] \" counter accept")
 	default:
 		clauses = append(clauses, "counter drop")
 	}

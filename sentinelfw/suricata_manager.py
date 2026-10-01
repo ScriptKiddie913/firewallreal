@@ -123,6 +123,9 @@ class SuricataManager:
                 r"C:\Program Files\Suricata\suricata.exe",
                 r"C:\Program Files (x86)\Suricata\suricata.exe",
                 r"C:\Tools\suricata\suricata.exe",
+                r"C:\ProgramData\chocolatey\bin\suricata.exe",
+                os.path.expandvars(r"%LOCALAPPDATA%\Programs\Suricata\suricata.exe"),
+                os.path.expandvars(r"%USERPROFILE%\scoop\apps\suricata\current\suricata.exe"),
             ]
             for c in candidates:
                 if os.path.isfile(c):
@@ -142,6 +145,26 @@ class SuricataManager:
     def is_available(self) -> bool:
         """Returns True if a valid Suricata binary is detected."""
         return bool(self._suricata_bin and os.path.isfile(self._suricata_bin))
+
+    def status(self) -> dict:
+        """Rich state for the dashboard: running / installed / not_installed / disabled."""
+        if not self.cfg_enabled():
+            return {"state": "disabled", "detail": "disabled in config"}
+        if not self.is_available():
+            return {"state": "not_installed",
+                    "detail": "Suricata binary not found — optional component. "
+                              "Install it (choco install suricata / apt install suricata) "
+                              "or set suricata.binary in config.json; the built-in Python "
+                              "sniffer keeps protecting you meanwhile."}
+        if self.process and self.process.poll() is None:
+            return {"state": "running", "detail": f"PID {self.process.pid}"}
+        return {"state": "installed", "detail": "binary detected; starts with the engine"}
+
+    def cfg_enabled(self) -> bool:
+        try:
+            return bool(self.cfg.get("enabled", True))
+        except Exception:
+            return True
 
     def ensure_directories(self):
         """Creates configuration and log directories."""

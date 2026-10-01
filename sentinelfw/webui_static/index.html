@@ -4,7 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>SentinelFW 3.0 — Defense Console</title>
-  <link rel="stylesheet" href="/style.css">
+  <link rel="stylesheet" href="/style.css?v=4.1.0">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -36,6 +36,13 @@
       <g id="icon-play"><polygon points="5 3 19 12 5 21 5 3" fill="none" stroke="currentColor" stroke-width="2"/></g>
       <g id="icon-pause"><rect x="6" y="4" width="4" height="16" fill="currentColor"/><rect x="14" y="4" width="4" height="16" fill="currentColor"/></g>
       <g id="icon-chart"><line x1="3" y1="3" x2="3" y2="21" stroke="currentColor" stroke-width="2"/><line x1="3" y1="21" x2="21" y2="21" stroke="currentColor" stroke-width="2"/><polyline points="6 16 10 10 13 13 18 6" fill="none" stroke="currentColor" stroke-width="2"/></g>
+      <g id="icon-waf"><polyline points="16 18 22 12 16 6" fill="none" stroke="currentColor" stroke-width="2"/><polyline points="8 6 2 12 8 18" fill="none" stroke="currentColor" stroke-width="2"/></g>
+      <g id="icon-dlp"><rect x="3" y="11" width="18" height="11" rx="2" ry="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4" fill="none" stroke="currentColor" stroke-width="2"/></g>
+      <g id="icon-ztna"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" fill="none" stroke="currentColor" stroke-width="2"/><path d="M9 12l2 2 4-4" stroke="currentColor" stroke-width="2"/></g>
+      <g id="icon-intel"><circle cx="12" cy="12" r="10" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="3" fill="none" stroke="currentColor" stroke-width="2"/><line x1="12" y1="2" x2="12" y2="6" stroke="currentColor" stroke-width="2"/><line x1="12" y1="18" x2="12" y2="22" stroke="currentColor" stroke-width="2"/><line x1="2" y1="12" x2="6" y2="12" stroke="currentColor" stroke-width="2"/><line x1="18" y1="12" x2="22" y2="12" stroke="currentColor" stroke-width="2"/></g>
+      <g id="icon-soar"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" fill="none" stroke="currentColor" stroke-width="2"/></g>
+      <g id="icon-users"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" fill="none" stroke="currentColor" stroke-width="2"/><circle cx="9" cy="7" r="4" fill="none" stroke="currentColor" stroke-width="2"/><path d="M23 21v-2a4 4 0 0 0-3-3.87" fill="none" stroke="currentColor" stroke-width="2"/><path d="M16 3.13a4 4 0 0 1 0 7.75" fill="none" stroke="currentColor" stroke-width="2"/></g>
+      <g id="icon-ai"><rect x="4" y="4" width="16" height="16" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><rect x="9" y="9" width="6" height="6" fill="none" stroke="currentColor" stroke-width="2"/><line x1="9" y1="1" x2="9" y2="4" stroke="currentColor" stroke-width="2"/><line x1="15" y1="1" x2="15" y2="4" stroke="currentColor" stroke-width="2"/><line x1="9" y1="20" x2="9" y2="23" stroke="currentColor" stroke-width="2"/><line x1="15" y1="20" x2="15" y2="23" stroke="currentColor" stroke-width="2"/><line x1="20" y1="9" x2="23" y2="9" stroke="currentColor" stroke-width="2"/><line x1="20" y1="14" x2="23" y2="14" stroke="currentColor" stroke-width="2"/><line x1="1" y1="9" x2="4" y2="9" stroke="currentColor" stroke-width="2"/><line x1="1" y1="14" x2="4" y2="14" stroke="currentColor" stroke-width="2"/></g>
     </defs>
   </svg>
 
@@ -56,6 +63,10 @@
         <button class="nav-item active" data-tab="overview">
           <span class="nav-icon"><svg width="18" height="18"><use href="#icon-matrix"/></svg></span>
           <span class="nav-label">Dashboard</span>
+        </button>
+        <button class="nav-item" data-tab="services">
+          <span class="nav-icon"><svg width="18" height="18"><use href="#icon-shield"/></svg></span>
+          <span class="nav-label">Security Services</span>
         </button>
         <button class="nav-item" data-tab="network">
           <span class="nav-icon"><svg width="18" height="18"><use href="#icon-packets"/></svg></span>
@@ -80,6 +91,34 @@
         <button class="nav-item" data-tab="appwall">
           <span class="nav-icon"><svg width="18" height="18"><use href="#icon-app"/></svg></span>
           <span class="nav-label">App Control</span>
+        </button>
+        <button class="nav-item" data-tab="waf">
+          <span class="nav-icon"><svg width="18" height="18"><use href="#icon-waf"/></svg></span>
+          <span class="nav-label">WAF & API Guard</span>
+        </button>
+        <button class="nav-item" data-tab="dlp">
+          <span class="nav-icon"><svg width="18" height="18"><use href="#icon-dlp"/></svg></span>
+          <span class="nav-label">Data Loss Prevention</span>
+        </button>
+        <button class="nav-item" data-tab="ztna">
+          <span class="nav-icon"><svg width="18" height="18"><use href="#icon-ztna"/></svg></span>
+          <span class="nav-label">Zero Trust (ZTNA)</span>
+        </button>
+        <button class="nav-item" data-tab="threatintel">
+          <span class="nav-icon"><svg width="18" height="18"><use href="#icon-intel"/></svg></span>
+          <span class="nav-label">Threat Intelligence</span>
+        </button>
+        <button class="nav-item" data-tab="playbooks">
+          <span class="nav-icon"><svg width="18" height="18"><use href="#icon-soar"/></svg></span>
+          <span class="nav-label">SOAR Playbooks</span>
+        </button>
+        <button class="nav-item" data-tab="identity">
+          <span class="nav-icon"><svg width="18" height="18"><use href="#icon-users"/></svg></span>
+          <span class="nav-label">Identity & Directory</span>
+        </button>
+        <button class="nav-item" data-tab="ai-analyst">
+          <span class="nav-icon"><svg width="18" height="18"><use href="#icon-ai"/></svg></span>
+          <span class="nav-label">AI Security Analyst</span>
         </button>
         <button class="nav-item" data-tab="honeypot">
           <span class="nav-icon"><svg width="18" height="18"><use href="#icon-decoy"/></svg></span>
@@ -256,6 +295,23 @@
           </div>
         </section>
 
+        <!-- SECURITY SERVICES MATRIX (18 Pillars) -->
+        <section id="tab-services" class="tab-pane">
+          <div class="panel">
+            <div class="panel-header">
+              <div class="panel-title-group">
+                <span class="panel-title">Unified Security Fabric & Enforcement Pipeline</span>
+                <span class="badge badge-info" id="services-active-badge">18/18 ENGINES ONLINE</span>
+              </div>
+              <div class="panel-actions">
+                <button class="btn btn-sm" id="btn-refresh-services"><svg width="10" height="10"><use href="#icon-refresh"/></svg> REFRESH</button>
+              </div>
+            </div>
+            <div class="services-summary" id="services-summary"></div>
+            <div class="services-grid" id="services-grid"></div>
+          </div>
+        </section>
+
         <!-- 2. NETWORK MONITOR (packets + geo threat map) -->
         <section id="tab-network" class="tab-pane">
           <div class="net-combined">
@@ -343,6 +399,9 @@
                   <div class="map-legend-title" style="margin-top:10px;">LAYER</div>
                   <button class="btn btn-sm map-mode-btn active" id="map-mode-markers">ENDPOINTS</button>
                   <button class="btn btn-sm map-mode-btn" id="map-mode-heat">HEATMAP</button>
+                  <div class="map-legend-title" style="margin-top:10px;">LIVE PIPELINES</div>
+                  <button class="btn btn-sm map-mode-btn active" id="map-flows-toggle">ON</button>
+                  <div class="vec-legend" id="vec-legend"></div>
                   <div class="map-tiles-note">© OpenFreeMap / OSM contributors</div>
                 </div>
                 <div class="map-badges">
@@ -359,6 +418,16 @@
                 <div class="panel">
                   <div class="panel-header"><div class="panel-title-group"><span class="panel-title">Country Distribution</span></div></div>
                   <div class="country-list" id="country-list"></div>
+                </div>
+                <div class="panel">
+                  <div class="panel-header">
+                    <div class="panel-title-group">
+                      <span class="panel-title">Threat Vector Analysis</span>
+                      <span class="badge badge-muted" id="vec-flagged-badge">0 flagged</span>
+                    </div>
+                  </div>
+                  <div class="vec-summary" id="vec-summary"></div>
+                  <div class="vec-ip-list" id="vec-ip-list"></div>
                 </div>
               </div>
             </div>
@@ -399,31 +468,79 @@
 
         <!-- 5. LIVE CONNECTIONS -->
         <section id="tab-connections" class="tab-pane">
-          <div class="panel">
-            <div class="panel-header">
-              <div class="panel-title-group">
-                <span class="panel-title">Active Network Sockets & Process Attribution</span>
+          <div class="conn-summary" id="conn-summary">
+            <div class="cs-cell"><span>SESSIONS</span><b class="mono" id="cs-total">0</b></div>
+            <div class="cs-cell"><span>ESTABLISHED</span><b class="mono cs-green" id="cs-est">0</b></div>
+            <div class="cs-cell"><span>LISTENING</span><b class="mono cs-blue" id="cs-listen">0</b></div>
+            <div class="cs-cell"><span>UDP</span><b class="mono cs-amber" id="cs-udp">0</b></div>
+            <div class="cs-cell"><span>APPS</span><b class="mono" id="cs-apps">0</b></div>
+            <div class="cs-cell"><span>REMOTE IPs</span><b class="mono" id="cs-remotes">0</b></div>
+            <div class="cs-cell cs-wide"><span>LIVE THROUGHPUT</span><b class="mono cs-green" id="cs-rate">↓0 B/s ↑0 B/s</b></div>
+          </div>
+          <div class="conn-split">
+            <div class="panel conn-top">
+              <div class="panel-header">
+                <div class="panel-title-group">
+                  <span class="panel-title">Live Connections</span>
+                  <span class="badge badge-muted mono" id="conn-count-badge">0</span>
+                </div>
+                <div class="panel-actions">
+                  <input type="text" class="form-input" id="conns-search" placeholder="Filter process, IP, port..." style="width:240px;">
+                </div>
               </div>
-              <div class="panel-actions">
-                <input type="text" class="form-input" id="conns-search" placeholder="Filter process, IP, port..." style="width:240px;">
+              <div class="table-responsive">
+                <table class="data-table" id="conns-table">
+                  <thead>
+                    <tr>
+                      <th>PID</th>
+                      <th>Executable</th>
+                      <th>Protocol</th>
+                      <th>Local Socket</th>
+                      <th>Remote Socket</th>
+                      <th>Geo</th>
+                      <th>↓ / ↑ Total</th>
+                      <th>↓ / ↑ Live</th>
+                      <th>State</th>
+                      <th>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody></tbody>
+                </table>
               </div>
             </div>
-            <div class="table-responsive">
-              <table class="data-table" id="conns-table">
-                <thead>
-                  <tr>
-                    <th>PID</th>
-                    <th>Executable</th>
-                    <th>Protocol</th>
-                    <th>Local Socket</th>
-                    <th>Remote Socket</th>
-                    <th>Geo / ASN</th>
-                    <th>State</th>
-                    <th>Actions</th>
-                  </tr>
-                </thead>
-                <tbody></tbody>
-              </table>
+            <div class="conn-bottom">
+              <div class="panel conn-detail-panel">
+                <div class="panel-header">
+                  <div class="panel-title-group">
+                    <span class="panel-title">Connection Details</span>
+                    <span class="badge badge-muted mono" id="conn-detail-badge">select a row</span>
+                  </div>
+                </div>
+                <div id="conn-detail" class="conn-detail-body">
+                  <div class="empty-state">Click any connection above to inspect it — live rates, geo, threat vectors and one-click actions.</div>
+                </div>
+              </div>
+              <div class="panel conn-graph-panel">
+                <div class="panel-header">
+                  <div class="panel-title-group">
+                    <span class="panel-title">Live Traffic Visualizer</span>
+                    <span class="badge badge-muted mono" id="conn-graph-badge">top 6 flows</span>
+                  </div>
+                  <div class="panel-actions" style="gap:4px;">
+                    <button class="btn btn-sm map-mode-btn active" id="conn-view-chart">RATES</button>
+                    <button class="btn btn-sm map-mode-btn" id="conn-view-map">FLOW MAP</button>
+                    <button class="btn btn-sm map-mode-btn" id="conn-view-appmap">APP MAP</button>
+                  </div>
+                </div>
+                <div class="conn-graph-body">
+                  <canvas id="conn-chart" height="240"></canvas>
+                  <div id="conn-flowmap" class="conn-flowmap" style="display:none;"></div>
+                  <div id="conn-appmap-wrap" style="display:none;">
+                    <div id="conn-app-legend" class="appmap-legend"></div>
+                    <div id="conn-appmap"></div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </section>
@@ -501,6 +618,13 @@
             <div class="panel-header">
               <div class="panel-title-group">
                 <span class="panel-title">Per-Application Network Policies</span>
+                <span class="badge badge-info" id="appwall-count-badge">0 policies</span>
+              </div>
+              <div class="panel-actions">
+                <button class="btn btn-primary btn-sm" id="btn-new-appwall">
+                  <svg width="12" height="12"><use href="#icon-plus"/></svg>
+                  <span>CREATE NEW</span>
+                </button>
               </div>
             </div>
             <div class="table-responsive">
@@ -534,6 +658,25 @@
               </div>
             </div>
             <div class="hp-services-grid" id="hp-services-grid"></div>
+          </div>
+          <div class="panel" id="tarpit-panel">
+            <div class="panel-header">
+              <div class="panel-title-group">
+                <span class="panel-title">SSH Tarpit (port 22222) — Seeker Bot Registry</span>
+                <span class="badge badge-danger mono" id="tarpit-count-badge">0 visitors</span>
+              </div>
+              <div class="panel-actions" style="gap:8px;">
+                <button class="btn btn-sm" id="btn-tarpit-toggle">AUTO-BLOCK: —</button>
+                <button class="btn btn-sm btn-danger" id="btn-tarpit-block-all">BLOCK ALL VISITOR IPS</button>
+              </div>
+            </div>
+            <div class="table-responsive" style="max-height:260px;">
+              <table class="data-table" id="tarpit-table">
+                <thead><tr><th>Seeker IP</th><th>Hits</th><th>Client Fingerprint</th><th>First Seen</th><th>Last Seen</th><th>State</th></tr></thead>
+                <tbody></tbody>
+              </table>
+            </div>
+            <div class="apps-hint">Any bot probing port 22222 is trapped by a realistic SSH banner, fingerprinted and held on the line. With auto-block enabled every visitor is banned for 7 days automatically (protected management IPs are never banned).</div>
           </div>
           <div class="panel">
             <div class="panel-header">
@@ -593,11 +736,15 @@
             <div class="table-responsive">
               <table class="data-table" id="bans-table">
                 <thead>
-                  <tr><th>IP Address</th><th>Reason</th><th>Source</th><th>Time Remaining</th><th>Actions</th></tr>
+                  <tr>
+                    <th>IP Address</th><th>Reason</th><th>Source</th><th>Offenses</th>
+                    <th>Added</th><th>Expires</th><th>Time Remaining</th><th>VirusTotal</th><th>Actions</th>
+                  </tr>
                 </thead>
                 <tbody></tbody>
               </table>
             </div>
+            <div class="apps-hint">Right-click a ban for quick actions: extend, make permanent, VT scan, locate on map. Add your management IPs under Settings → Protected Management IPs so they are never banned.</div>
           </div>
         </section>
 
@@ -750,6 +897,174 @@
             </div>
           </div>
 
+          <!-- Protected Management IPs -->
+          <div class="settings-section" id="settings-trusted">
+            <div class="settings-section-title">Protected Management IPs</div>
+            <div class="settings-desc">
+              IPs and networks that are never banned, killed or redirected — your laptop, jump hosts and admin ranges. Private LAN ranges are protected by default; add or remove entries below.
+            </div>
+            <div class="settings-row" style="display:flex; gap:10px; align-items:center;">
+              <input type="text" class="form-input mono" id="trusted-ip-input" placeholder="e.g. 192.168.1.20 or 203.0.113.0/24" style="width:320px;">
+              <button class="btn btn-primary" id="btn-add-trusted">ADD</button>
+            </div>
+            <div class="trusted-ip-list" id="trusted-ip-list"></div>
+          </div>
+
+          <!-- Integrations (suricata / clamav / go services / TLS) -->
+          <div class="settings-section" id="settings-integrations">
+            <div class="settings-section-title">Integrations & Console TLS</div>
+            <div class="settings-desc">
+              Suricata and ClamAV are pulled in automatically at daemon start where the host allows it (Linux + root; elsewhere a manual note is logged). The Go service supervisor builds and health-checks the sentinelgated daemon when a Go toolchain is present. Console TLS terminates on a bring-your-own certificate — <span class="mono">sfwctl tls-gencert</span> generates a self-signed pair for lab use.
+            </div>
+            <div id="integrations-status-line" style="font-size:11.5px; margin-bottom:8px;">—</div>
+            <div style="display:flex; gap:10px; flex-wrap:wrap;">
+              <button class="btn" id="btn-integrations-install">RETRY AUTO-INSTALL</button>
+              <button class="btn" id="btn-gosvc-toggle">GO DAEMON: —</button>
+              <span id="integrations-result" style="font-size:11px; color:var(--text-muted); align-self:center;">—</span>
+            </div>
+          </div>
+
+          <!-- DNS Security (filtering forwarder) -->
+          <div class="settings-section" id="settings-dns">
+            <div class="settings-section-title">DNS Security</div>
+            <div class="settings-desc">
+              A filtering DNS forwarder. Point the host (or DHCP clients) at this machine's DNS and every query is checked against your domain blocklists before being forwarded upstream — blocked domains return the sinkhole address. Works even without hosts-file elevation.
+            </div>
+            <div id="dns-status-line" style="font-size:11.5px; margin-bottom:8px;">—</div>
+            <div style="display:flex; gap:10px; flex-wrap:wrap;">
+              <button class="btn btn-primary" id="btn-dns-toggle">DNS FILTER: —</button>
+              <span id="dns-result" style="font-size:11px; color:var(--text-muted); align-self:center;">—</span>
+            </div>
+          </div>
+
+          <!-- Fleet -->
+          <div class="settings-section" id="settings-fleet">
+            <div class="settings-section-title">Fleet (Central Relay)</div>
+            <div class="settings-desc">
+              Enable this console as a fleet relay, then run agents on your other SentinelFW hosts:
+              <span class="mono">python sfwctl.py fleet-agent --relay http://THIS-HOST:443 --key YOUR-KEY</span>.
+              Agents report bans, threats and recent events every 30 s and pull the shared IP blocklist back down to their own <span class="mono">lists/fleet_shared.txt</span>.
+            </div>
+            <div id="fleet-status-line" style="font-size:11.5px; margin-bottom:8px;">—</div>
+            <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+              <button class="btn btn-primary" id="btn-fleet-toggle">FLEET RELAY: —</button>
+              <button class="btn" id="btn-fleet-newkey">REGENERATE KEY</button>
+              <span class="mono" id="fleet-key-display" style="font-size:11px; color:var(--accent-warn);"></span>
+            </div>
+            <div id="fleet-agents" style="margin-top:10px; font-size:11px;" class="mono"></div>
+          </div>
+
+          <!-- Log Vault (blockchain sealing + flush) -->
+          <div class="settings-section" id="settings-vault">
+            <div class="settings-section-title">Log Vault &mdash; Sealed Chain + FLUSH</div>
+            <div class="settings-desc">
+              Seals the event log into chained, HMAC-signed blocks (Merkle root + previous-block hash — blockchain-grade tamper evidence: edits, deletions and forged blocks are all detectable). <b>FLUSH</b> deletes every stored log artifact at once: events.jsonl, the audit chain, the vault chain, the intel cache and all forensic PCAPs. Type <span class="mono">FLUSH</span> to confirm.
+            </div>
+            <div id="vault-status-line" style="font-size:11.5px; margin-bottom:8px;">—</div>
+            <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+              <button class="btn btn-primary" id="btn-vault-toggle">VAULT SEALING: —</button>
+              <button class="btn" id="btn-vault-newkey">REGENERATE SEAL KEY</button>
+              <button class="btn" id="btn-vault-seal">SEAL NOW</button>
+              <button class="btn btn-danger" id="btn-flush" style="background:var(--accent-danger, #b3413b); color:#fff;">FLUSH ALL LOGS</button>
+            </div>
+            <div style="margin-top:10px; display:flex; gap:8px; align-items:center;">
+              <input id="flush-confirm" class="text-input" placeholder="type FLUSH to confirm" style="width:220px;">
+              <span id="vault-result" style="font-size:11px; color:var(--text-muted);">—</span>
+            </div>
+          </div>
+
+          <!-- Operations Safety (commit-confirm, PCAP forensics, persistence watch) -->
+          <div class="settings-section" id="settings-ops">
+            <div class="settings-section-title">Operations Safety & Forensics</div>
+            <div class="settings-desc">
+              Commit-confirm stages config changes and auto-reverts them if you do not press CONFIRM within the TTL — protects against locking yourself out. The PCAP ring keeps raw packets in memory and dumps a Wireshark-readable capture around every alert. The persistence watch alerts when cron / systemd / Run keys / autostart entries change.
+            </div>
+            <div id="commit-status-line" style="font-size:11.5px; margin-bottom:8px;">—</div>
+            <div style="display:flex; gap:10px; flex-wrap:wrap;">
+              <button class="btn btn-primary" id="btn-commit-stage">STAGE CHANGES (5 MIN)</button>
+              <button class="btn btn-primary" id="btn-commit-confirm">CONFIRM</button>
+              <button class="btn" id="btn-commit-rollback">ROLLBACK NOW</button>
+              <button class="btn" id="btn-pcap-toggle">PCAP RING: —</button>
+              <button class="btn" id="btn-pwatch-toggle">PERSISTENCE WATCH: —</button>
+              <button class="btn" id="btn-pwatch-baseline">RE-BASELINE</button>
+              <span id="ops-result" style="font-size:11px; color:var(--text-muted); align-self:center;">—</span>
+            </div>
+            <div id="persistence-out" style="margin-top:10px; font-size:11px;" class="mono"></div>
+            <div id="pcap-list" style="margin-top:10px; font-size:11px;" class="mono"></div>
+          </div>
+
+          <!-- Console Security (sessions, 2FA, learning mode, audit) -->
+          <div class="settings-section" id="settings-security">
+            <div class="settings-section-title">Console Security & Learning Mode</div>
+            <div class="settings-desc">
+              Session-cookie login with CSRF protection and automatic lockout is active. Add a second factor (TOTP, RFC 6238) for the console, enable learning mode to record detections without enforcing bans, and inspect the tamper-evident audit trail.
+            </div>
+            <div id="sec-status-line" style="font-size:11.5px; margin-bottom:8px;">—</div>
+            <div style="display:flex; gap:10px; flex-wrap:wrap;">
+              <button class="btn btn-primary" id="btn-2fa-enable">ENABLE 2FA</button>
+              <button class="btn" id="btn-2fa-disable" style="display:none;">DISABLE 2FA</button>
+              <button class="btn" id="btn-learning-toggle">LEARNING MODE: —</button>
+              <button class="btn" id="btn-logout">SIGN OUT</button>
+              <span id="sec-result" style="font-size:11px; color:var(--text-muted); align-self:center;">—</span>
+            </div>
+            <div id="sec-2fa-out" style="display:none; margin-top:10px; background:var(--bg-inset, #0d1117); border:1px solid var(--border-subtle); padding:10px; font-size:11px;" class="mono"></div>
+          </div>
+
+          <!-- Antivirus (ClamAV) -->
+          <div class="settings-section" id="settings-clamav">
+            <div class="settings-section-title">Antivirus — ClamAV</div>
+            <div class="settings-desc">
+              System-wide malware scanning through the local ClamAV engine. Signatures auto-update daily (freshclam, ~03:30), scans can quarantine findings into the SentinelFW quarantine store, and every result is written to the event log.
+            </div>
+            <div id="clamav-status-line" style="font-size:11.5px; margin-bottom:8px;">—</div>
+            <div style="display:flex; gap:10px; flex-wrap:wrap;">
+              <button class="btn btn-primary" id="btn-clamav-scan">SCAN SYSTEM NOW</button>
+              <button class="btn" id="btn-clamav-quarantine">SCAN + QUARANTINE</button>
+              <button class="btn" id="btn-clamav-update">UPDATE DEFINITIONS</button>
+              <span id="clamav-result" style="font-size:11px; color:var(--text-muted); align-self:center;">—</span>
+            </div>
+          </div>
+
+          <!-- Sarvam AI Threat Analyst -->
+          <div class="settings-section" id="settings-sarvam">
+            <div class="settings-section-title">AI Threat Analyst (Sarvam-105B)</div>
+            <div class="settings-desc">
+              Agentic threat identification: consolidated evidence (bans, vectors, traffic, VT, IDS events) is
+              assessed by Sarvam's flagship 105B model. High-risk unknown IPs are auto-analyzed (rate-limited);
+              any IP can be analyzed on demand via right-click → AI THREAT ANALYSIS. Assessments are stored in the
+              local SQLite database.
+            </div>
+            <div class="pol-form-grid">
+              <div class="form-group pol-wide">
+                <label class="form-label">Sarvam API Key</label>
+                <input type="password" class="form-input mono" id="sarvam-key" placeholder="paste your Sarvam API key">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Model</label>
+                <input type="text" class="form-input mono" id="sarvam-model" placeholder="sarvam-105b">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Auto-analyze high-risk IPs</label>
+                <select class="form-select" id="sarvam-auto">
+                  <option value="true">ENABLED</option>
+                  <option value="false">DISABLED</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Risk threshold (0-100)</label>
+                <input type="number" class="form-input mono" id="sarvam-threshold" min="1" max="100">
+              </div>
+              <div class="form-group">
+                <label class="form-label">Max auto analyses / hour</label>
+                <input type="number" class="form-input mono" id="sarvam-rate" min="1" max="60">
+              </div>
+            </div>
+            <div style="margin-top:10px; display:flex; gap:10px; align-items:center;">
+              <button class="btn btn-primary" id="btn-save-sarvam">SAVE AI SETTINGS</button>
+              <span id="sarvam-status" style="font-size:11px; color:var(--text-muted);">—</span>
+            </div>
+          </div>
+
           <!-- Engine -->
           <div class="settings-section">
             <div class="settings-section-title">Engine Operating Parameters</div>
@@ -780,6 +1095,428 @@
                   <button class="btn btn-sm btn-danger" id="btn-clear-pkts-settings">CLEAR PACKET BUFFER</button>
                 </div>
               </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ==================== WAF & API GUARD ==================== -->
+        <section class="tab-pane" id="tab-waf">
+          <div class="stat-grid">
+            <div class="stat-card">
+              <div class="stat-label">WAF Proxy Status</div>
+              <div class="stat-value" id="waf-stat-status" style="color:var(--accent-safe);">ACTIVE</div>
+              <div class="stat-sub" id="waf-stat-listen">0.0.0.0:8088 (Reverse Proxy)</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">Enforcement Mode</div>
+              <div class="stat-value" id="waf-stat-mode" style="color:var(--accent-warning);">BLOCKING</div>
+              <div class="stat-sub">Automated anomaly score drop</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">OWASP CRS Rules</div>
+              <div class="stat-value" id="waf-stat-rules">48</div>
+              <div class="stat-sub">CRS 3.3 Core Rules Loaded</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">Requests Inspected</div>
+              <div class="stat-value" id="waf-stat-reqs">0</div>
+              <div class="stat-sub" id="waf-stat-blocked">0 blocked / challenges</div>
+            </div>
+          </div>
+
+          <div class="panel" style="margin-top:16px;">
+            <div class="panel-header">
+              <span class="panel-title">WAF Engine & OWASP Core Rule Set Controls</span>
+            </div>
+            <div class="panel-body">
+              <div class="pol-form-grid">
+                <div class="form-group">
+                  <label class="form-label">Paranoia Level (CRS 1–4)</label>
+                  <select class="form-select" id="waf-paranoia-select">
+                    <option value="1">Level 1: Minimal False Positives (Production Standard)</option>
+                    <option value="2">Level 2: Strict Enterprise Security</option>
+                    <option value="3">Level 3: High Security Banking / Gov</option>
+                    <option value="4">Level 4: Maximum Paranoia (Extreme Strict)</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Proxy Enforcement Mode</label>
+                  <select class="form-select" id="waf-mode-select">
+                    <option value="block">BLOCK: Autonomous HTTP 403 / Drops</option>
+                    <option value="monitor">MONITOR: Heuristic Log Only</option>
+                  </select>
+                </div>
+              </div>
+              <div style="margin-top:12px; display:flex; gap:10px;">
+                <button class="btn btn-primary" id="btn-save-waf-cfg">APPLY WAF POLICY</button>
+                <span id="waf-cfg-status" style="font-size:11px; color:var(--text-muted); align-self:center;">—</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="panel" style="margin-top:16px;">
+            <div class="panel-header">
+              <span class="panel-title">Active Security Shields</span>
+            </div>
+            <div class="panel-body">
+              <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(280px, 1fr)); gap:14px;">
+                <div class="service-box">
+                  <div class="sb-title">Bot & Scraper Mitigator</div>
+                  <div class="sb-desc">Signature detection for automated web crawlers, headless browsers, and scraper networks. Returns JS crypto challenges.</div>
+                  <span class="badge badge-success">ACTIVE</span>
+                </div>
+                <div class="service-box">
+                  <div class="sb-title">Credential Stuffing Shield</div>
+                  <div class="sb-desc">Monitors HTTP POST login endpoints, tracks consecutive auth failures, and thwarts distributed brute-force password spraying.</div>
+                  <span class="badge badge-success">ACTIVE</span>
+                </div>
+                <div class="service-box">
+                  <div class="sb-title">API Schema & Parameter Guard</div>
+                  <div class="sb-desc">Enforces JSON schema validation, prevents parameter tampering, SQL injection, NoSQL injection, and path traversal in API routes.</div>
+                  <span class="badge badge-success">ACTIVE</span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ==================== DATA LOSS PREVENTION ==================== -->
+        <section class="tab-pane" id="tab-dlp">
+          <div class="stat-grid">
+            <div class="stat-card">
+              <div class="stat-label">DLP Engine Status</div>
+              <div class="stat-value" style="color:var(--accent-safe);">ENFORCING</div>
+              <div class="stat-sub">In-line regex & Shannon entropy</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">Default Leak Action</div>
+              <div class="stat-value" id="dlp-default-action" style="color:var(--accent-warning);">REDACT</div>
+              <div class="stat-sub">Zero-exposure payload masking</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">Active Inspection Rules</div>
+              <div class="stat-value" id="dlp-rules-count">8</div>
+              <div class="stat-sub">CC (Luhn), SSN, Keys, JWT, Entropy</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">Privacy Bypass Domains</div>
+              <div class="stat-value" id="dlp-bypass-count">11</div>
+              <div class="stat-sub">HIPAA & Banking exemptions</div>
+            </div>
+          </div>
+
+          <div class="panel" style="margin-top:16px;">
+            <div class="panel-header">
+              <span class="panel-title">Sensitive Pattern Inspection Catalog</span>
+            </div>
+            <div class="panel-body table-responsive">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Rule ID</th>
+                    <th>Detection Name</th>
+                    <th>Mechanism</th>
+                    <th>Severity</th>
+                    <th>Action</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody id="dlp-rules-body">
+                  <tr><td colspan="6" class="text-center text-muted">Loading DLP pattern catalog…</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="panel" style="margin-top:16px;">
+            <div class="panel-header">
+              <span class="panel-title">Interactive Live DLP Payload Tester</span>
+            </div>
+            <div class="panel-body">
+              <div class="form-group">
+                <label class="form-label">Input Payload / HTTP Body to Inspect</label>
+                <textarea class="form-input mono" id="dlp-test-input" rows="3" placeholder="Paste test data (e.g. 4532-0123-4567-8910 or AKIAIOSFODNN7EXAMPLE or private key / API tokens)..."></textarea>
+              </div>
+              <div style="margin-top:8px; display:flex; gap:10px;">
+                <button class="btn btn-primary" id="btn-run-dlp-test">SCAN PAYLOAD</button>
+              </div>
+              <div id="dlp-test-result" style="margin-top:12px; display:none;">
+                <div class="settings-section-title">Inspection Verdict</div>
+                <pre class="mono" id="dlp-test-output" style="background:var(--bg-inset); padding:10px; border-radius:4px; font-size:11px; white-space:pre-wrap; border:1px solid var(--border-subtle);"></pre>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ==================== ZERO TRUST (ZTNA) ==================== -->
+        <section class="tab-pane" id="tab-ztna">
+          <div class="stat-grid">
+            <div class="stat-card">
+              <div class="stat-label">ZTNA Architecture</div>
+              <div class="stat-value" style="color:var(--accent-safe);">ACTIVE</div>
+              <div class="stat-sub">Continuous device & context scoring</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">Min Posture Score</div>
+              <div class="stat-value">75 / 100</div>
+              <div class="stat-sub">Strict compliance threshold</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">EDR & Encryption</div>
+              <div class="stat-value" style="color:var(--accent-safe);">MANDATORY</div>
+              <div class="stat-sub">BitLocker + Active AV agent</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">Bound Identities</div>
+              <div class="stat-value" id="ztna-identities-count">0</div>
+              <div class="stat-sub">Directory authenticated devices</div>
+            </div>
+          </div>
+
+          <div class="panel" style="margin-top:16px;">
+            <div class="panel-header">
+              <span class="panel-title">Real-Time Contextual Posture Check Simulator</span>
+            </div>
+            <div class="panel-body">
+              <div class="pol-form-grid">
+                <div class="form-group">
+                  <label class="form-label">Client IP Address</label>
+                  <input type="text" class="form-input mono" id="ztna-eval-ip" value="192.168.1.105">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Requested Target Application</label>
+                  <input type="text" class="form-input mono" id="ztna-eval-app" value="jira.corp.internal">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Disk Encryption (BitLocker)</label>
+                  <select class="form-select" id="ztna-eval-disk">
+                    <option value="true">ENCRYPTED</option>
+                    <option value="false">UNENCRYPTED</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Endpoint EDR Agent</label>
+                  <select class="form-select" id="ztna-eval-edr">
+                    <option value="true">RUNNING & HEALTHY</option>
+                    <option value="false">MISSING / STOPPED</option>
+                  </select>
+                </div>
+              </div>
+              <div style="margin-top:12px;">
+                <button class="btn btn-primary" id="btn-run-ztna-eval">EVALUATE ACCESS GATE</button>
+              </div>
+              <div id="ztna-eval-result" style="margin-top:12px; display:none;">
+                <pre class="mono" id="ztna-eval-output" style="background:var(--bg-inset); padding:10px; border-radius:4px; font-size:11px; border:1px solid var(--border-subtle);"></pre>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ==================== THREAT INTELLIGENCE ==================== -->
+        <section class="tab-pane" id="tab-threatintel">
+          <div class="stat-grid">
+            <div class="stat-card">
+              <div class="stat-label">Feed Ingestion Pipeline</div>
+              <div class="stat-value" style="color:var(--accent-safe);">OPERATIONAL</div>
+              <div class="stat-sub">Multi-source automated TIP</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">Total Threat Feeds</div>
+              <div class="stat-value" id="ti-feed-count">4</div>
+              <div class="stat-sub">FireHOL, Feodo, URLhaus, AlienVault</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">Anti-Poisoning Protection</div>
+              <div class="stat-value" style="color:var(--accent-safe);">ENFORCED</div>
+              <div class="stat-sub">RFC1918 / Loopback protected</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-label">VirusTotal Cached IPs</div>
+              <div class="stat-value" id="ti-vt-cached">0</div>
+              <div class="stat-sub">Permanent malicious cache</div>
+            </div>
+          </div>
+
+          <div class="panel" style="margin-top:16px;">
+            <div class="panel-header">
+              <span class="panel-title">Active Threat Intelligence Feeds</span>
+            </div>
+            <div class="panel-body table-responsive">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Feed Name</th>
+                    <th>Type</th>
+                    <th>Confidence</th>
+                    <th>Active Indicators</th>
+                    <th>Ingestion Status</th>
+                  </tr>
+                </thead>
+                <tbody id="ti-feeds-body">
+                  <tr><td colspan="5" class="text-center text-muted">Loading threat feeds…</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="panel" style="margin-top:16px;">
+            <div class="panel-header">
+              <span class="panel-title">Instant Indicator of Compromise (IOC) Lookup</span>
+            </div>
+            <div class="panel-body">
+              <div style="display:flex; gap:10px;">
+                <input type="text" class="form-input mono" id="ti-lookup-input" placeholder="Enter IP (e.g. 185.220.101.5), domain, or SHA-256 hash..." style="flex:1;">
+                <button class="btn btn-primary" id="btn-ti-lookup">CHECK REPUTATION</button>
+              </div>
+              <div id="ti-lookup-result" style="margin-top:12px; display:none;">
+                <pre class="mono" id="ti-lookup-output" style="background:var(--bg-inset); padding:10px; border-radius:4px; font-size:11px; border:1px solid var(--border-subtle);"></pre>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ==================== SOAR PLAYBOOKS ==================== -->
+        <section class="tab-pane" id="tab-playbooks">
+          <div class="panel">
+            <div class="panel-header">
+              <span class="panel-title">Automated Incident Response Workflows</span>
+            </div>
+            <div class="panel-body table-responsive">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Playbook ID</th>
+                    <th>Name</th>
+                    <th>Trigger Conditions</th>
+                    <th>Actions</th>
+                    <th>Executions</th>
+                    <th>State</th>
+                  </tr>
+                </thead>
+                <tbody id="pb-list-body">
+                  <tr><td colspan="6" class="text-center text-muted">Loading playbooks…</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div class="panel" style="margin-top:16px;">
+            <div class="panel-header">
+              <span class="panel-title">Playbook Simulation & Dry-Run Runner</span>
+            </div>
+            <div class="panel-body">
+              <div class="pol-form-grid">
+                <div class="form-group">
+                  <label class="form-label">Simulated Event Type</label>
+                  <input type="text" class="form-input mono" id="pb-test-event" value="port_scan_detected">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Target Source IP</label>
+                  <input type="text" class="form-input mono" id="pb-test-ip" value="198.51.100.99">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Severity Level</label>
+                  <select class="form-select" id="pb-test-sev">
+                    <option value="high">HIGH</option>
+                    <option value="critical">CRITICAL</option>
+                    <option value="medium">MEDIUM</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Execution Mode</label>
+                  <select class="form-select" id="pb-test-mode">
+                    <option value="dry_run">Dry-Run (Simulate Only)</option>
+                    <option value="live">Live Execution (Dispatches Real Actions)</option>
+                  </select>
+                </div>
+              </div>
+              <div style="margin-top:12px;">
+                <button class="btn btn-primary" id="btn-run-pb-sim">RUN SIMULATION</button>
+              </div>
+              <div id="pb-sim-result" style="margin-top:12px; display:none;">
+                <pre class="mono" id="pb-sim-output" style="background:var(--bg-inset); padding:10px; border-radius:4px; font-size:11px; border:1px solid var(--border-subtle);"></pre>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ==================== IDENTITY & DIRECTORY ==================== -->
+        <section class="tab-pane" id="tab-identity">
+          <div class="panel">
+            <div class="panel-header" style="justify-content:space-between; display:flex;">
+              <span class="panel-title">Authoritative IP-to-User Directory Mappings</span>
+              <button class="btn btn-sm btn-primary" id="btn-show-bind-modal">+ BIND IDENTITY</button>
+            </div>
+            <div class="panel-body table-responsive">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>IP Address</th>
+                    <th>User Account</th>
+                    <th>Domain / Groups</th>
+                    <th>Device ID</th>
+                    <th>MAC Address</th>
+                    <th>Posture</th>
+                    <th>Expires In</th>
+                  </tr>
+                </thead>
+                <tbody id="ident-table-body">
+                  <tr><td colspan="7" class="text-center text-muted">No active identity bindings registered. Click "+ BIND IDENTITY" to map an IP.</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+
+        <!-- ==================== AI SECURITY ANALYST ==================== -->
+        <section class="tab-pane" id="tab-ai-analyst">
+          <div class="ai-chat-card">
+            <div class="ai-chat-header">
+              <div class="ai-chat-title-group">
+                <div class="ai-avatar-badge">
+                  <svg width="20" height="20"><use href="#icon-ai"/></svg>
+                </div>
+                <div>
+                  <div class="ai-chat-title">Sentinel AI Threat Analyst</div>
+                  <div class="ai-chat-subtitle">Agentic Threat Investigation & Rule Synthesis • Sarvam-105B / Gemini Core</div>
+                </div>
+              </div>
+              <div class="ai-chat-actions">
+                <span class="badge badge-success" id="ai-guard-badge">GUARDRAILS ENFORCED</span>
+                <button class="btn btn-sm" id="btn-clear-ai-chat" title="Clear chat session">CLEAR CHAT</button>
+              </div>
+            </div>
+
+            <!-- Scrollable Chat Stream -->
+            <div class="ai-chat-stream" id="ai-chat-stream">
+              <div class="chat-msg chat-msg-ai">
+                <div class="msg-avatar"><svg width="16" height="16"><use href="#icon-ai"/></svg></div>
+                <div class="msg-bubble">
+                  <div class="msg-header">Sentinel Analyst</div>
+                  <div class="msg-text">
+                    Hello! I am your real-time SentinelFW AI Security Analyst. I continuously correlate kernel telemetry, active host bans, WAF events, and live network flows.
+                    <br><br>
+                    You can ask me to investigate suspicious IPs, evaluate anomalous egress spikes, inspect packet captures, or generate FortiGate/iptables policy rules.
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Suggested Quick Prompt Chips -->
+            <div class="ai-chat-chips" id="ai-quick-chips">
+              <button class="chat-chip" data-query="Analyze unusual outbound spike on port 4444">🔍 Outbound Port 4444 Spike</button>
+              <button class="chat-chip" data-query="Investigate top external scanner IP and recommend mitigation">🛡️ Mitigate Top Scanner</button>
+              <button class="chat-chip" data-query="Assess recent WAF attack vectors and CRS 3.3 rule coverage">🌐 WAF Attack Audit</button>
+              <button class="chat-chip" data-query="Synthesize zero-trust policy to restrict corporate SSH access">🔒 Synthesize SSH Policy</button>
+            </div>
+
+            <!-- Input Bar -->
+            <div class="ai-chat-input-bar">
+              <textarea id="ai-chat-input" class="form-input mono" placeholder="Ask AI Security Analyst about threats, logs, IOCs, or policy generation... (Press Enter to send)" rows="1"></textarea>
+              <button class="btn btn-primary" id="btn-ai-chat-send">
+                <svg width="14" height="14"><use href="#icon-send"/></svg>
+                <span>SEND</span>
+              </button>
             </div>
           </div>
         </section>
@@ -814,6 +1551,45 @@
     </div>
   </div>
 
+  <!-- MODAL: BIND IDENTITY -->
+  <div class="modal-overlay" id="modal-identity">
+    <div class="modal-card">
+      <div class="modal-header">
+        <span class="modal-title">Bind User & Device Identity to IP</span>
+        <button class="btn btn-sm" id="btn-close-modal-identity">X</button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label class="form-label">Client IP Address</label>
+          <input type="text" class="form-input mono" id="bind-ip" placeholder="e.g. 192.168.1.105">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Username / Account</label>
+          <input type="text" class="form-input mono" id="bind-user" placeholder="e.g. alice.smith">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Active Directory Domain / Groups</label>
+          <input type="text" class="form-input" id="bind-groups" placeholder="CORP / SecOps, Developers">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Device Name / Hostname</label>
+          <input type="text" class="form-input" id="bind-device" placeholder="e.g. WORKSTATION-04">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Compliance Posture</label>
+          <select class="form-select" id="bind-posture">
+            <option value="COMPLIANT">COMPLIANT (Full Access)</option>
+            <option value="QUARANTINE">QUARANTINE (Restricted)</option>
+            <option value="NON_COMPLIANT">NON-COMPLIANT (Blocked)</option>
+          </select>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn btn-primary" id="btn-submit-identity">REGISTER IDENTITY</button>
+      </div>
+    </div>
+  </div>
+
   <!-- MODAL: ADD RULE -->
   <div class="modal-overlay" id="modal-rule">
     <div class="modal-card">
@@ -838,6 +1614,68 @@
       </div>
       <div class="modal-footer">
         <button class="btn btn-primary" id="btn-submit-rule">ADD RULE</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: IP INTEL (reasons / VT report / AI analysis) -->
+  <div class="modal-overlay" id="modal-ip">
+    <div class="modal-card modal-ip-card">
+      <div class="modal-header">
+        <span class="modal-title" id="ip-modal-title">IP Intelligence</span>
+        <button class="btn btn-sm" id="btn-close-modal-ip">X</button>
+      </div>
+      <div class="modal-body" id="ip-modal-body">
+        <div class="empty-state">Loading…</div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn" id="btn-ip-ban">BAN IP</button>
+        <button class="btn" id="btn-ip-vt">VT SCAN</button>
+        <button class="btn btn-primary" id="btn-ip-ai">AI ANALYSIS</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL: APPWALL POLICY EDITOR -->
+  <div class="modal-overlay" id="modal-appwall">
+    <div class="modal-card modal-policy-card">
+      <div class="modal-header">
+        <span class="modal-title" id="appwall-modal-title">Create Application Policy</span>
+        <button class="btn btn-sm" id="btn-close-modal-appwall">X</button>
+      </div>
+      <div class="modal-body">
+        <div class="pol-form-grid">
+          <div class="form-group pol-wide">
+            <label class="form-label">Target Executable — exact path or glob (e.g. C:\Users\*\AppData\*.exe)</label>
+            <input type="text" class="form-input mono" id="appwall-exe" list="appwall-exe-list" placeholder="type to search indexed applications…">
+            <datalist id="appwall-exe-list"></datalist>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Allow Outbound Ports (blank = allow all)</label>
+            <input type="text" class="form-input mono" id="appwall-out" placeholder="e.g. 443, 53, tcp/8080">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Allow Inbound Ports</label>
+            <input type="text" class="form-input mono" id="appwall-in" placeholder="e.g. 8080">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Deny Destinations (IP/CIDR list)</label>
+            <input type="text" class="form-input mono" id="appwall-deny" placeholder="e.g. 203.0.113.0/24, 198.51.100.7">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Action on Violation</label>
+            <select class="form-select" id="appwall-action">
+              <option value="block+alert">BLOCK + ALERT</option>
+              <option value="alert">ALERT ONLY</option>
+              <option value="kill">KILL PROCESS</option>
+              <option value="none">NONE</option>
+            </select>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button class="btn" id="btn-cancel-appwall">CANCEL</button>
+        <button class="btn btn-primary" id="btn-submit-appwall">SAVE POLICY</button>
       </div>
     </div>
   </div>
@@ -916,6 +1754,9 @@
     </div>
   </div>
 
+  <!-- LIVE FLOW HOVER TOOLTIP -->
+  <div class="flow-tip" id="flow-tip"></div>
+
   <!-- RIGHT-CLICK CONTEXT MENU -->
   <div class="ctx-menu" id="ctx-menu"></div>
 
@@ -930,6 +1771,26 @@
     </div>
   </div>
 
-  <script src="/app.js"></script>
+  <script src="/app.js?v=4.1.0"></script>
+  <!-- Forced first-run password change -->
+  <div id="pwchange-overlay" style="display:none; position:fixed; inset:0; z-index:9999;
+       background:rgba(4,8,14,0.92); display:none; align-items:center; justify-content:center;">
+    <div style="width:420px; background:var(--bg-panel, #141b24); border:1px solid var(--accent-danger, #b3413b);
+         padding:28px; border-radius:6px;">
+      <h3 style="margin:0 0 6px; color:var(--accent-danger, #b3413b); letter-spacing:2px; font-size:14px;">
+        SET A NEW CONSOLE PASSWORD</h3>
+      <p style="font-size:11px; color:var(--text-muted); margin:0 0 18px;">
+        The default password is still in use — all configuration changes are blocked until it is changed.
+        The new hash is salted scrypt.</p>
+      <label style="display:block; font-size:10px; letter-spacing:1px; color:var(--text-muted); margin:10px 0 4px;">CURRENT PASSWORD</label>
+      <input id="pwchange-current" type="password" style="width:100%; box-sizing:border-box; background:var(--bg-inset, #0d1117);
+             border:1px solid var(--border-subtle); color:var(--text-main); padding:8px; font-family:Consolas,monospace;">
+      <label style="display:block; font-size:10px; letter-spacing:1px; color:var(--text-muted); margin:10px 0 4px;">NEW PASSWORD (10+ CHARS)</label>
+      <input id="pwchange-new" type="password" style="width:100%; box-sizing:border-box; background:var(--bg-inset, #0d1117);
+             border:1px solid var(--border-subtle); color:var(--text-main); padding:8px; font-family:Consolas,monospace;">
+      <div id="pwchange-err" style="color:var(--accent-danger); font-size:11px; min-height:16px; margin-top:8px;"></div>
+      <button class="btn btn-primary" id="pwchange-submit" style="width:100%; margin-top:8px;">CHANGE PASSWORD & CONTINUE</button>
+    </div>
+  </div>
 </body>
 </html>

@@ -1,0 +1,8 @@
+{
+  "id": "sfw-tarpit-001",
+  "name": "SSH seeker bot trapped by tarpit",
+  "description": "Automated bot probed the decoy SSH port 22222. Auto-block usually handles it; this rule guarantees a sigma telemetry record.",
+  "severity": "medium",
+  "action": "monitor",
+  "selection": {"kind": "tarpit_ssh_seeker"}
+}

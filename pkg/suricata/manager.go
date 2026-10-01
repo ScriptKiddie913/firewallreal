@@ -65,24 +65,42 @@ func (m *Manager) ReloadRules() error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	// If socket exists, communicate with Suricata daemon
+	// Ensure the real Suricata control socket exists; no fake/mock reload
 	if _, err := os.Stat(m.socketPath); err != nil {
-		// Mock reload if running in development / container without active daemon
-		m.rulesVersion++
-		return nil
+		return fmt.Errorf("suricata command socket not found at %s: daemon not running or socket misconfigured (%w)", m.socketPath, err)
 	}
 
 	conn, err := net.Dial("unix", m.socketPath)
 	if err != nil {
-		return fmt.Errorf("failed to connect to Suricata command socket: %w", err)
+		return fmt.Errorf("failed to connect to Suricata command socket at %s: %w", m.socketPath, err)
 	}
 	defer conn.Close()
+
+	// Set deadline to avoid hanging indefinitely
+	_ = conn.SetDeadline(time.Now().Add(5 * time.Second))
 
 	// Suricata Unix socket protocol command: {"command": "reload-rules"}
 	cmd := map[string]string{"command": "reload-rules"}
 	payload, _ := json.Marshal(cmd)
 	if _, err := conn.Write(append(payload, '\n')); err != nil {
-		return err
+		return fmt.Errorf("failed to send reload command to Suricata: %w", err)
+	}
+
+	// Read and verify Suricata response
+	buf := make([]byte, 1024)
+	n, err := conn.Read(buf)
+	if err != nil {
+		return fmt.Errorf("failed reading reload acknowledgment from Suricata: %w", err)
+	}
+
+	var resp struct {
+		Return string `json:"return"`
+		Error  string `json:"error,omitempty"`
+	}
+	if err := json.Unmarshal(buf[:n], &resp); err == nil {
+		if resp.Return != "OK" {
+			return fmt.Errorf("suricata rule reload failed: %s", resp.Error)
+		}
 	}
 
 	m.rulesVersion++

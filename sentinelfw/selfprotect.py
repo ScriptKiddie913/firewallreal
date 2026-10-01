@@ -43,6 +43,10 @@ class SelfProtect(threading.Thread):
             self._source_hashes = res
         return res
 
+    def rebaseline(self) -> Dict[str, str]:
+        """Re-computes cryptographic signatures of all source modules after an authorized update."""
+        return self.build_manifest()
+
     def verify_integrity(self) -> Tuple[bool, List[str]]:
         """Compares current source files against the initial manifest."""
         tampered = []

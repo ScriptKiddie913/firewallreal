@@ -160,3 +160,97 @@ class ElasticShipper(threading.Thread):
                 return resp.status in (200, 201)
         except Exception:
             return False
+
+
+class OTLPShipper(threading.Thread):
+    """Exports logs, alerts, and telemetry in standard OTLP/HTTP JSON format."""
+
+    def __init__(self, cfg=None):
+        super().__init__(name="otlp_shipper", daemon=True)
+        self.cfg = cfg or {}
+        otlp_cfg = self.cfg.get("otlp", {})
+        self.enabled = otlp_cfg.get("enabled", False)
+        self.endpoint = str(otlp_cfg.get("endpoint", "http://localhost:4318/v1/logs")).rstrip("/")
+        self.headers = otlp_cfg.get("headers", {})
+        self.batch_size = int(otlp_cfg.get("batch_size", 100))
+        self.flush_interval = float(otlp_cfg.get("flush_interval_seconds", 5))
+        self._queue = collections.deque(maxlen=10000)
+        self._lock = threading.RLock()
+        self._last_flush = time.time()
+        self.is_connected = False
+
+    def ship_event(self, event_doc: dict):
+        if not self.enabled:
+            return
+        with self._lock:
+            self._queue.append(event_doc)
+
+    def run(self):
+        while not STOP.is_set():
+            time.sleep(1.0)
+            if not self.enabled:
+                continue
+            now = time.time()
+            with self._lock:
+                should_flush = len(self._queue) >= self.batch_size or (
+                    now - self._last_flush >= self.flush_interval and self._queue
+                )
+            if should_flush:
+                self.flush()
+
+    def flush(self) -> int:
+        batch = []
+        with self._lock:
+            while self._queue and len(batch) < self.batch_size:
+                batch.append(self._queue.popleft())
+            self._last_flush = time.time()
+
+        if not batch:
+            return 0
+
+        # Construct standard OTLP JSON logs envelope
+        log_records = []
+        for ev in batch:
+            ts_nano = int(ev.get("ts", time.time()) * 1e9)
+            attrs = [
+                {"key": str(k), "value": {"stringValue": str(v)}}
+                for k, v in ev.items() if k not in ("ts", "kind")
+            ]
+            log_records.append({
+                "timeUnixNano": str(ts_nano),
+                "severityText": str(ev.get("sev", "INFO")).upper(),
+                "body": {"stringValue": str(ev.get("kind", "security_event"))},
+                "attributes": attrs,
+            })
+
+        payload = {
+            "resourceLogs": [{
+                "resource": {
+                    "attributes": [
+                        {"key": "service.name", "value": {"stringValue": "sentinelfw"}},
+                        {"key": "service.version", "value": {"stringValue": "4.0.0"}},
+                    ]
+                },
+                "scopeLogs": [{
+                    "scope": {"name": "sentinelfw.security"},
+                    "logRecords": log_records,
+                }]
+            }]
+        }
+
+        req = urllib.request.Request(
+            self.endpoint,
+            data=json.dumps(payload).encode("utf-8"),
+            headers={"Content-Type": "application/json", **self.headers},
+            method="POST",
+        )
+        try:
+            with urllib.request.urlopen(req, timeout=5) as resp:
+                if resp.status in (200, 201, 202):
+                    self.is_connected = True
+                    return len(batch)
+        except Exception:
+            self.is_connected = False
+
+        return 0
+

@@ -1,56 +1,81 @@
-// Package main implements the unified CLI / TUI tool sfw for SentinelGate & SentinelFW.
+// Package main implements the unified CLI tool sfw for SentinelGate & SentinelFW.
 package main
 
 import (
+	"flag"
 	"fmt"
 	"os"
 
 	"github.com/sentinelgate/sentinelgate/cmd/sfw/cmd"
-	"github.com/spf13/cobra"
 )
 
-var (
-	Version = "3.0.0-dev"
-	jsonOut bool
-)
+var Version = "4.0.0"
 
-var rootCmd = &cobra.Command{
-	Use:   "sfw",
-	Short: "sfw - Unified command-line interface and TUI for SentinelGate and SentinelFW",
-	Long: `sfw is the central management and diagnostic utility for SentinelGate NGFW 
-appliances and SentinelFW 3.0 endpoint security agents.`,
+func printUsage() {
+	fmt.Println(`sfw - Unified command-line interface for SentinelGate and SentinelFW
+
+Usage:
+  sfw <command> [arguments]
+
+Available Commands:
+  version      Print SentinelGate / SentinelFW version
+  policy       Inspect and manage firewall policies (list, check)
+  commit       Commit candidate configuration to active ruleset
+  confirm      Confirm pending configuration commit and cancel rollback
+  rollback     Immediately rollback to previous configuration state
+  tune         Display or apply kernel conntrack and network tuning
+  routes       Display configured static and dynamic routes
+  interfaces   Display network interfaces, zones, and offload flags
+  top          Display real-time throughput, active sessions, and metrics
+  sessions     List active stateful conntrack sessions
+  alerts       Stream or view recent security threat alerts
+
+Use "sfw <command> -h" for more information about a command.`)
 }
 
-var versionCmd = &cobra.Command{
-	Use:   "version",
-	Short: "Print SentinelGate / SentinelFW version",
-	Run: func(cmd *cobra.Command, args []string) {
-		if jsonOut {
+func main() {
+	if len(os.Args) < 2 {
+		printUsage()
+		os.Exit(0)
+	}
+
+	subcmd := os.Args[1]
+	args := os.Args[2:]
+
+	switch subcmd {
+	case "version", "-v", "--version":
+		fs := flag.NewFlagSet("version", flag.ExitOnError)
+		jsonOut := fs.Bool("json", false, "Output results in JSON format")
+		fs.Parse(args)
+		if *jsonOut {
 			fmt.Printf(`{"version":"%s"}`+"\n", Version)
 		} else {
 			fmt.Printf("SentinelGate / SentinelFW CLI (sfw) version %s\n", Version)
 		}
-	},
-}
-
-func init() {
-	rootCmd.PersistentFlags().BoolVar(&jsonOut, "json", false, "Output results in JSON format")
-	rootCmd.AddCommand(versionCmd)
-	rootCmd.AddCommand(cmd.PolicyCmd)
-	rootCmd.AddCommand(cmd.CommitCmd)
-	rootCmd.AddCommand(cmd.ConfirmCmd)
-	rootCmd.AddCommand(cmd.RollbackCmd)
-	rootCmd.AddCommand(cmd.TuneCmd)
-	rootCmd.AddCommand(cmd.RoutesCmd)
-	rootCmd.AddCommand(cmd.InterfacesCmd)
-	rootCmd.AddCommand(cmd.TopCmd)
-	rootCmd.AddCommand(cmd.SessionsCmd)
-	rootCmd.AddCommand(cmd.AlertsCmd)
-}
-
-func main() {
-	if err := rootCmd.Execute(); err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
+	case "policy":
+		cmd.RunPolicy(args)
+	case "commit":
+		cmd.RunCommit(args)
+	case "confirm":
+		cmd.RunConfirm(args)
+	case "rollback":
+		cmd.RunRollback(args)
+	case "tune":
+		cmd.RunTune(args)
+	case "routes":
+		cmd.RunRoutes(args)
+	case "interfaces":
+		cmd.RunInterfaces(args)
+	case "top":
+		cmd.RunTop(args)
+	case "sessions":
+		cmd.RunSessions(args)
+	case "alerts":
+		cmd.RunAlerts(args)
+	case "help", "-h", "--help":
+		printUsage()
+	default:
+		fmt.Fprintf(os.Stderr, "Unknown command: %s\nRun 'sfw help' for usage.\n", subcmd)
 		os.Exit(1)
 	}
 }

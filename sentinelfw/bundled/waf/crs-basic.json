@@ -1,0 +1,167 @@
+[
+  {
+    "id": 942100,
+    "name": "SQLi - Common Boolean Logic Injection",
+    "pattern": "(?i)(\\b(or|and)\\b\\s+['\"]?\\d+['\"]?\\s*=\\s*['\"]?\\d+|\\b(or|and)\\b\\s+['\"][a-z0-9]+['\"]\\s*=\\s*['\"][a-z0-9]+|'\\s+or\\s+'1'='1|'\\s*--)",
+    "targets": ["REQUEST_URI", "ARGS", "REQUEST_BODY"],
+    "score": 5,
+    "phase": 1,
+    "paranoia_level": 1,
+    "action": "block",
+    "tags": ["owasp-crs", "attack-sqli", "injection"]
+  },
+  {
+    "id": 942110,
+    "name": "SQLi - Union Select Statement",
+    "pattern": "(?i)\\bunion\\b\\s+(all\\s+)?\\bselect\\b",
+    "targets": ["REQUEST_URI", "ARGS", "REQUEST_BODY"],
+    "score": 5,
+    "phase": 1,
+    "paranoia_level": 1,
+    "action": "block",
+    "tags": ["owasp-crs", "attack-sqli", "injection"]
+  },
+  {
+    "id": 942120,
+    "name": "SQLi - Time-Based Blind / Sleep Injection",
+    "pattern": "(?i)\\b(sleep\\s*\\(\\s*\\d+|waitfor\\s+delay|pg_sleep\\s*\\()",
+    "targets": ["REQUEST_URI", "ARGS", "REQUEST_BODY"],
+    "score": 5,
+    "phase": 1,
+    "paranoia_level": 1,
+    "action": "block",
+    "tags": ["owasp-crs", "attack-sqli", "injection"]
+  },
+  {
+    "id": 942130,
+    "name": "SQLi - Schema & System Table Probing",
+    "pattern": "(?i)\\b(information_schema|sysdatabases|sysobjects|table_name|column_name)\\b",
+    "targets": ["REQUEST_URI", "ARGS", "REQUEST_BODY"],
+    "score": 3,
+    "phase": 1,
+    "paranoia_level": 2,
+    "action": "block",
+    "tags": ["owasp-crs", "attack-sqli", "recon"]
+  },
+  {
+    "id": 941100,
+    "name": "XSS - Explicit Script Tag Injection",
+    "pattern": "(?i)<script[^>]*>.*?</script>|<script[^>]*>",
+    "targets": ["REQUEST_URI", "ARGS", "REQUEST_BODY"],
+    "score": 5,
+    "phase": 1,
+    "paranoia_level": 1,
+    "action": "block",
+    "tags": ["owasp-crs", "attack-xss"]
+  },
+  {
+    "id": 941110,
+    "name": "XSS - Event Handler Injection",
+    "pattern": "(?i)\\bon(error|load|click|mouse|hover|submit|change)\\s*=",
+    "targets": ["REQUEST_URI", "ARGS", "REQUEST_BODY"],
+    "score": 5,
+    "phase": 1,
+    "paranoia_level": 1,
+    "action": "block",
+    "tags": ["owasp-crs", "attack-xss"]
+  },
+  {
+    "id": 941120,
+    "name": "XSS - JavaScript URI Scheme",
+    "pattern": "(?i)(javascript|vbscript|data):",
+    "targets": ["REQUEST_URI", "ARGS", "REQUEST_BODY"],
+    "score": 4,
+    "phase": 1,
+    "paranoia_level": 1,
+    "action": "block",
+    "tags": ["owasp-crs", "attack-xss"]
+  },
+  {
+    "id": 930100,
+    "name": "Path Traversal - Dot-Dot-Slash",
+    "pattern": "(\\.\\.[\\/\\\\]|%2e%2e[\\/\\\\]|\\.%2e[\\/\\\\]|%2e\\.[\\/\\\\])",
+    "targets": ["REQUEST_URI", "ARGS", "REQUEST_BODY"],
+    "score": 5,
+    "phase": 1,
+    "paranoia_level": 1,
+    "action": "block",
+    "tags": ["owasp-crs", "attack-lfi"]
+  },
+  {
+    "id": 930110,
+    "name": "LFI - Sensitive File Access (passwd/shadow/hosts/win.ini)",
+    "pattern": "(?i)(\\/etc\\/(passwd|shadow|hosts|issue)|c:[\\\\\\/]windows[\\\\\\/]win\\.ini)",
+    "targets": ["REQUEST_URI", "ARGS", "REQUEST_BODY"],
+    "score": 5,
+    "phase": 1,
+    "paranoia_level": 1,
+    "action": "block",
+    "tags": ["owasp-crs", "attack-lfi"]
+  },
+  {
+    "id": 932100,
+    "name": "RCE - Unix Command Chaining & Execution",
+    "pattern": "(?i)(;|\\|\\||&&|`)\\s*(cat|ls|id|whoami|uname|nc|curl|wget|sh|bash)\\b",
+    "targets": ["REQUEST_URI", "ARGS", "REQUEST_BODY"],
+    "score": 5,
+    "phase": 1,
+    "paranoia_level": 1,
+    "action": "block",
+    "tags": ["owasp-crs", "attack-rce"]
+  },
+  {
+    "id": 932110,
+    "name": "RCE - Windows PowerShell Encoded & Execution",
+    "pattern": "(?i)(powershell(\\.(exe)?)?\\s+(-(e|enc|encodedcommand)|iex)|cmd(\\.exe)?\\s+\\/c)",
+    "targets": ["REQUEST_URI", "ARGS", "REQUEST_BODY"],
+    "score": 5,
+    "phase": 1,
+    "paranoia_level": 1,
+    "action": "block",
+    "tags": ["owasp-crs", "attack-rce"]
+  },
+  {
+    "id": 944100,
+    "name": "RCE - Log4j JNDI Lookup Injection",
+    "pattern": "(?i)\\$\\{(jndi|base64|lower|upper):",
+    "targets": ["REQUEST_URI", "ARGS", "REQUEST_HEADERS", "REQUEST_BODY"],
+    "score": 5,
+    "phase": 1,
+    "paranoia_level": 1,
+    "action": "block",
+    "tags": ["owasp-crs", "attack-rce", "cve-2021-44228"]
+  },
+  {
+    "id": 933100,
+    "name": "SSTI - Server-Side Template Injection",
+    "pattern": "(?i)(\\$\\{\\s*\\d+\\s*\\*\\s*\\d+\\s*\\}|\\{\\{\\s*\\d+\\s*\\*\\s*\\d+\\s*\\}\\}|#\\{\\s*\\d+\\s*\\*\\s*\\d+\\s*\\})",
+    "targets": ["REQUEST_URI", "ARGS", "REQUEST_BODY"],
+    "score": 5,
+    "phase": 1,
+    "paranoia_level": 1,
+    "action": "block",
+    "tags": ["owasp-crs", "attack-ssti"]
+  },
+  {
+    "id": 950100,
+    "name": "Web Shell - Common PHP Execution Stems",
+    "pattern": "(?i)(eval\\s*\\(\\s*base64_decode|assert\\s*\\(|passthru\\s*\\(|c99shell|r57shell)",
+    "targets": ["REQUEST_URI", "ARGS", "REQUEST_BODY"],
+    "score": 5,
+    "phase": 1,
+    "paranoia_level": 1,
+    "action": "block",
+    "tags": ["owasp-crs", "attack-webshell"]
+  },
+  {
+    "id": 920100,
+    "name": "Protocol Anomaly - HTTP Request Smuggling (Chunked / Content-Length clash)",
+    "pattern": "(?i)\\btransfer-encoding\\b.*?\\bchunked\\b",
+    "targets": ["REQUEST_HEADERS"],
+    "score": 3,
+    "phase": 1,
+    "paranoia_level": 2,
+    "action": "block",
+    "tags": ["owasp-crs", "protocol-smuggling"]
+  }
+]

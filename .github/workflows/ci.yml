@@ -7,9 +7,26 @@ on:
     branches: [ main ]
 
 jobs:
+  hygiene-and-secrets:
+    name: Release Hygiene & Secrets Audit
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Run Hygiene & Secret Verifier
+        run: |
+          python scripts/check_release_hygiene.py
+
   test-python:
     name: Python Agent Tests (Python ${{ matrix.python-version }})
     runs-on: ubuntu-22.04
+    needs: hygiene-and-secrets
     strategy:
       matrix:
         python-version: ["3.10", "3.11", "3.12"]
@@ -22,9 +39,13 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
 
-      - name: Run SentinelFW Unit Tests
+      - name: Install Pytest
         run: |
-          python -m unittest discover -s tests -v
+          pip install pytest
+
+      - name: Run SentinelFW Test Suite
+        run: |
+          pytest tests/ -v
 
   test-go-dataplane:
     name: Go Control Plane & Tests
@@ -39,14 +60,14 @@ jobs:
           go-version: '1.22.x'
           cache: true
 
-      - name: Download Go modules
+      - name: Verify Go Modules
         run: |
-          go mod download || true
+          go mod verify
 
       - name: Go Code Quality & Tests
         run: |
-          go vet ./... || true
-          go test -v -cover ./... || true
+          go vet ./pkg/... ./cmd/...
+          go test -v -cover ./pkg/... ./cmd/...
 
   test-ebpf-compile:
     name: eBPF / XDP Bytecode Verification
@@ -63,8 +84,8 @@ jobs:
       - name: Compile eBPF programs
         run: |
           mkdir -p bin
-          clang -O2 -g -Wall -target bpf -c bpf/xdp_prefilter.c -o bin/xdp_prefilter.o || true
-          clang -O2 -g -Wall -target bpf -c bpf/sock_filter.c -o bin/sock_filter.o || true
+          clang -O2 -g -Wall -target bpf -c bpf/xdp_prefilter.c -o bin/xdp_prefilter.o
+          clang -O2 -g -Wall -target bpf -c bpf/sock_filter.c -o bin/sock_filter.o
 
   lab-integration-smoke:
     name: Network Namespaces Virtual Lab Smoke Test

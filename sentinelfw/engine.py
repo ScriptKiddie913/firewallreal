@@ -91,7 +91,13 @@ def sync_hosts(eng):
     try:
         raw = HOSTS.read_bytes().decode("utf-8", "replace")
     except OSError as e:
-        event("hosts_error", "medium", error=e)
+        # Non-elevated run cannot touch the system hosts file. Degrade
+        # gracefully: say it once, clearly, and stop retrying every cycle.
+        if not getattr(eng, "_hosts_denied_logged", False):
+            eng._hosts_denied_logged = True
+            event("hosts_sinkhole_unavailable", "info", error=e,
+                  note="run as Administrator/root to enable hosts-file domain blocking; "
+                       "DNS-layer blocking and the firewall keep working without it")
         return False
     nl = "\r\n" if IS_WIN else "\n"
     stripped = re.sub(r"(?:\r?\n)?" + re.escape(MARK_B) + r".*?" + re.escape(MARK_E) + r"(?:\r?\n)?", nl, raw, flags=re.S).rstrip("\r\n") + nl
@@ -115,7 +121,13 @@ def sync_hosts(eng):
             except OSError:
                 pass
     except OSError as e:
-        event("hosts_error", "medium", error=e)
+        # usually a non-elevated run: System32\drivers\etc\hosts needs Administrator.
+        # Degrade gracefully: one clear message, then stop retrying every cycle.
+        if not getattr(eng, "_hosts_write_denied", False):
+            eng._hosts_write_denied = True
+            event("hosts_sinkhole_unavailable", "info", error=e,
+                  note="run as Administrator/root to enable hosts-file domain blocking; "
+                       "DNS-layer blocking and the firewall keep working without it")
         return False
     run(["ipconfig", "/flushdns"] if IS_WIN else ["resolvectl", "flush-caches"])
     event("hosts_synced", domains=len(want))
@@ -125,6 +137,7 @@ def sync_hosts(eng):
 class Engine:
     def __init__(self):
         self.store = Store()
+        self._commit_deadline = None
         self.lists = Lists()
         self.backend = WinBackend() if IS_WIN else NftBackend()
         self.guard = Guard(self)
@@ -154,7 +167,15 @@ class Engine:
             from .common import CONFIG_FILE, atomic_write
             atomic_write(CONFIG_FILE, json.dumps(cfg, indent=2))
 
-        self.honeypot = HoneypotManager(self.cfg, config_persist=_persist_honeypot_cfg)
+        def _on_tarpit_hit(ip, banner):
+            # SSH tarpit (port 22222) saw a seeker bot: remember + optionally ban.
+            if self.cfg.get("honeypot", {}).get("tarpit_auto_block", True):
+                self.ban(ip, "ssh-tarpit: automated seeker bot", 7 * 86400, "honeypot")
+            else:
+                event("tarpit_seeker_seen", "warning", ip=ip, client_banner=banner)
+
+        self.honeypot = HoneypotManager(self.cfg, config_persist=_persist_honeypot_cfg,
+                                        on_tarpit_hit=_on_tarpit_hit)
         self.policies = FirewallPolicies(self.cfg, engine=self, config_persist=_persist_honeypot_cfg)
         self.intel = ThreatIntel(self.cfg, engine=self)
         self.recorder = PacketRecorder(capacity=8000)
@@ -163,10 +184,107 @@ class Engine:
         self.sandbox = Sandbox(self.cfg)
         self.elastic = ElasticShipper(self.cfg)
         self.baseline = BaselineEngine(self.cfg, conntrack=self.conntrack, engine=self)
+        from .clamav import ClamAvManager
+        self.clamav = ClamAvManager(self.cfg.get("clamav", {}))
         self.selfprotect = SelfProtect(self.cfg)
         self.suricata_mgr = SuricataManager(self.cfg)
         self.suricata_ingest = SuricataIngest(self.suricata_mgr.eve_path, engine=self)
         self.webui = None
+
+        # SentinelFW 4.0 Subsystems
+        from .waf import WAFProxyServer
+        from .identity import IdentityDirectory, MicrosegmentationManager, ZTNAEvaluator, JITRuleManager
+        from .nat import NatManager
+        from .objects import ObjectCatalog
+        from .zones import ZoneManager
+        from .appid import AppIdEngine
+        from .dlp import DLPManager
+        from .playbook import PlaybookEngine
+        from .compliance import ComplianceAuditor
+        from .correlation import CorrelationEngine
+        from .assetmap import AssetMap
+        from .feeds import ThreatIntelFeeds
+        from .decoy_advanced import AdvancedDecoyManager
+        from .tarpit import TarpitManager
+        from .watchdog import WatchdogGuard
+        from .fleet import FleetManager
+        from .gateway_sync import GatewaySyncClient
+        from .killchain import KillChainTracker
+        from .protocols import ProtocolAnalyzer
+
+        self.identity = IdentityDirectory(self.cfg)
+        self.microseg = MicrosegmentationManager()
+        self.ztna = ZTNAEvaluator(self.identity)
+        self.jit = JITRuleManager(engine=self)
+        self.nat_mgr = NatManager(self.cfg.get("nat_rules", []))
+        self.objects = ObjectCatalog(self.cfg)
+        self.zones = ZoneManager(self.cfg)
+        self.appid = AppIdEngine(self.cfg)
+        self.dlp = DLPManager(self.cfg.get("dlp", {}))
+        self.playbooks = PlaybookEngine(self.cfg, engine=self)
+        self.compliance = ComplianceAuditor()
+        self.correlation = CorrelationEngine(self.cfg, engine=self)
+        self.assetmap = AssetMap(self.cfg)
+        self.feed_mgr = ThreatIntelFeeds(self.cfg)
+        self.advanced_decoys = AdvancedDecoyManager(self.cfg, engine=self)
+        self.tarpit = TarpitManager(self.cfg, engine=self)
+        self.watchdog = WatchdogGuard(self.cfg)
+        self.fleet_mgr = FleetManager(self.cfg)
+        posture_cb = getattr(self, "posture", None)
+        self.gateway_sync = GatewaySyncClient(self.cfg, posture_provider=posture_cb if callable(posture_cb) else None)
+        self.killchain = KillChainTracker(self.cfg, engine=self)
+        self.protocols = ProtocolAnalyzer(self.cfg)
+        self.waf = WAFProxyServer(self.cfg, engine=self)
+        from .stateful_engine import StatefulFirewallEngine
+        self.stateful_engine = StatefulFirewallEngine(max_connections=500000)
+
+        # Wire live event bus to correlation and playbooks
+        def _on_event_bus(ev_data):
+            try:
+                kind = str(ev_data.get("kind") or "")
+                src_ip = str(ev_data.get("ip") or ev_data.get("src") or "")
+                if hasattr(self, "correlation") and kind and src_ip:
+                    self.correlation.process_event(kind, src_ip, ev_data)
+                if hasattr(self, "playbooks"):
+                    self.playbooks.evaluate_event(ev_data)
+            except Exception:
+                pass
+        from .common import register_event_listener
+        register_event_listener(_on_event_bus)
+
+        # Console credentials initialization (first-run random OTP, operator passwords never overwritten)
+        w = self.cfg.setdefault("webui", {})
+        if not w.get("username"):
+            w["username"] = "admin"
+        if not w.get("password_hash"):
+            import secrets
+            from .mgmt import hash_password
+            otp = secrets.token_urlsafe(16)
+            w["password_hash"] = hash_password(otp)
+            w["must_change_password"] = True
+            w["password_initialized"] = False
+
+            # Print once to console
+            print(f"\n{'='*64}\n  SENTINELFW FIRST-RUN CREDENTIALS\n  Username: {w['username']}\n  OTP Password: {otp}\n  You MUST change this password on first login.\n{'='*64}\n")
+
+            # Write to root/admin-only file auth.initial
+            try:
+                from . import common
+                auth_file = Path(common.HOME) / "auth.initial"
+                auth_content = f"username={w['username']}\none_time_password={otp}\ngenerated_at={int(time.time())}\n"
+                common.atomic_write(auth_file, auth_content)
+                if not IS_WIN:
+                    try:
+                        os.chmod(auth_file, 0o600)
+                    except OSError:
+                        pass
+            except Exception as ex:
+                event("initial_creds_write_error", "warning", error=str(ex))
+
+            try:
+                self.config_persist()
+            except Exception:
+                pass
 
     @property
     def cfg(self):
@@ -196,15 +314,99 @@ class Engine:
     def blocked(self, ip):
         return ip in self.lists.ipset or ip in self.store.bans
 
+    def trusted(self, ip) -> bool:
+        """Admin / management IPs that must never be banned or redirected."""
+        try:
+            nets = self.cfg.get("trusted_ips", []) or []
+            import ipaddress as _ipa
+            a = _ipa.ip_address(str(ip))
+            if a.is_loopback:  # the machine itself is always trusted
+                return True
+            for n in nets:
+                if isinstance(n, str) and n.strip():
+                    if a in _ipa.ip_network(n.strip(), strict=False):
+                        return True
+        except ValueError:
+            pass
+        return False
+
     def domain_blocked(self, name):
         parts = name.lower().strip(".").split(".")
         d = self.lists.domains
         return any(".".join(parts[i:]) in d for i in range(len(parts) - 1))
 
     def config_persist(self):
-        """Persists the current config (used by policy / intel modules)."""
+        """Persists the current config (used by policy / intel modules).
+
+        Goes through the Store's env-safe path so environment-injected API
+        keys are never written back into config.json.
+        """
         from .common import CONFIG_FILE, atomic_write
-        atomic_write(CONFIG_FILE, json.dumps(self.cfg, indent=2))
+        st = getattr(self, "store", None)
+        dump = lambda: atomic_write(CONFIG_FILE, json.dumps(self.cfg, indent=2))  # noqa: E731
+        if st is not None and hasattr(st, "persist_env_safe"):
+            st.persist_env_safe(dump)
+        else:
+            dump()
+
+    # ----------------------------------------------------------------
+    # commit-confirm: stage config changes, auto-rollback if unconfirmed
+    # ----------------------------------------------------------------
+    def commit_stage(self, ttl_minutes: int = None) -> dict:
+        """Snapshots the live config; changes after this point are reverted
+        unless commit_confirm() is called before the deadline."""
+        from .common import atomic_write
+        cc = self.cfg.setdefault("commit_confirm", {})
+        ttl = int(ttl_minutes or cc.get("ttl_minutes", 5))
+        snap = json.loads(json.dumps(self.cfg))
+        snap.pop("commit_confirm_pending", None)
+        snap["_commit_deadline"] = self._commit_deadline
+        atomic_write(HOME / "config_staged.json", json.dumps(snap, indent=2))
+        self._commit_deadline = time.time() + ttl * 60
+        event("commit_staged", "warning", ttl_minutes=ttl,
+              note="config changes will auto-rollback unless confirmed")
+        return {"staged": True, "ttl_minutes": ttl,
+                "confirm_by": time.strftime("%H:%M:%S", time.localtime(self._commit_deadline))}
+
+    def commit_confirm(self) -> dict:
+        if getattr(self, "_commit_deadline", None) is None:
+            return {"staged": False, "note": "no staged session"}
+        self._commit_deadline = None
+        try:
+            (HOME / "config_staged.json").unlink()
+        except OSError:
+            pass
+        event("commit_confirmed", "info")
+        return {"staged": False, "confirmed": True}
+
+    def commit_rollback(self, reason: str = "manual") -> dict:
+        """Restores the staged snapshot into the live config and re-applies."""
+        f = HOME / "config_staged.json"
+        if not f.exists():
+            return {"rolled_back": False, "note": "nothing staged"}
+        try:
+            snap = json.loads(f.read_text())
+            snap.pop("_commit_deadline", None)
+            self._commit_deadline = None
+            self.cfg.clear()
+            self.cfg.update(snap)
+            self.config_persist()
+            try:
+                self.apply_all()
+            except Exception:  # backend re-sync is best-effort; config is restored
+                event("config_rollback_backend_warning", "warning",
+                      note="firewall backend re-sync failed; config file restored")
+            f.unlink()
+            event("config_rollback", "warning", reason=reason)
+            return {"rolled_back": True, "reason": reason}
+        except Exception as exc:
+            event("config_rollback_failed", "critical", error=str(exc))
+            return {"rolled_back": False, "error": str(exc)}
+
+    def commit_status(self) -> dict:
+        dl = getattr(self, "_commit_deadline", None)
+        return {"staged": dl is not None,
+                "seconds_left": max(0, int(dl - time.time())) if dl else 0}
 
     def apply_all(self):
         self.lists.refresh()
@@ -224,6 +426,30 @@ class Engine:
         try:
             ip = str(addr(ip))
         except ValueError:
+            return False
+        if self.trusted(ip):
+            event("ban_skipped_trusted", "info", ip=ip, reason=reason)
+            return False
+        # operator allow-list + learning mode (detections logged, not enforced)
+        d = self.cfg.get("detections", {}) or {}
+        for entry in (d.get("allowlist") or []):
+            try:
+                eip = entry.get("ip")
+                ip_hit = (ip in eip) if isinstance(eip, list) else (eip == ip)
+                if eip and ip_hit:
+                    event("ban_suppressed_allowlist", "info", ip=ip, reason=reason,
+                          note="matching detection allow-list entry")
+                    return False
+                rc = entry.get("reason_contains")
+                if rc and rc in str(reason):
+                    event("ban_suppressed_allowlist", "info", ip=ip, reason=reason,
+                          note="matching detection allow-list entry")
+                    return False
+            except Exception:
+                pass
+        if d.get("learning_mode"):
+            event("ban_suppressed_learning", "warning", ip=ip, reason=reason,
+                  note="learning mode: detections recorded, bans suppressed")
             return False
         if not force and self.guard.protected(ip):
             t = time.monotonic()
@@ -248,6 +474,19 @@ class Engine:
         event("ip_banned", "high", ip=ip, reason=reason, seconds=seconds, source=source, enforced=ok)
         return True
 
+    def extend_ban(self, ip, seconds):
+        """Extends (or makes permanent when seconds==0) an existing ban."""
+        with self.store.lock:
+            cur = self.store.bans.get(ip)
+            if not cur:
+                return False
+            cur["expires"] = 0 if seconds == 0 else time.time() + seconds
+            self.store.save()
+        # re-push to the kernel with the new TTL (permanent when seconds == 0)
+        self.backend.ban(ip, seconds)
+        event("ban_extended", "info", ip=ip, seconds=seconds)
+        return True
+
     def unban(self, ip):
         with self.store.lock:
             had = self.store.bans.pop(ip, None) is not None
@@ -255,3 +494,31 @@ class Engine:
                 self.store.save()
         self.backend.unban(ip)
         return had
+
+    def quarantine_host(self, ip: str, reason: str = "Compromised host posture", seconds: int = 3600):
+        """Enforces a host quarantine enclave, isolating lateral movement while allowing remediation."""
+        try:
+            ip = str(addr(ip))
+        except ValueError:
+            return False
+        if hasattr(self, "stateful_engine"):
+            self.stateful_engine.quarantine_host(ip, duration=seconds, reason=reason)
+        # Also enforce in kernel / backend and ban store
+        return self.ban(ip, reason=f"Quarantine Enclave: {reason}", seconds=seconds, source="quarantine", force=True)
+
+    def unquarantine_host(self, ip: str):
+        """Removes a host from quarantine enclave isolation."""
+        try:
+            ip = str(addr(ip))
+        except ValueError:
+            return False
+        if hasattr(self, "stateful_engine"):
+            self.stateful_engine.unquarantine_host(ip)
+        return self.unban(ip)
+
+    def is_quarantined(self, ip: str) -> bool:
+        """Returns True if the host is currently in a quarantine enclave."""
+        if hasattr(self, "stateful_engine"):
+            return self.stateful_engine.is_quarantined(ip) is not None
+        return False
+

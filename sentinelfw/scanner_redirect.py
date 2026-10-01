@@ -45,27 +45,55 @@ class ScannerRedirector:
     def _apply_os_redirect(self, src_ip: str) -> bool:
         """Applies kernel redirection rules."""
         if IS_WIN:
-            # On Windows, we use portproxy or let our honeypot listener handle incoming connections
-            # via scoped netsh portproxy if configured
-            return True
-        else:
-            # On Linux, add nftables DNAT rule
+            # On Windows, record portproxy mapping or route if configured
             try:
-                cmd = [
-                    "nft", "add", "rule", "inet", "sentinelfw", "prerouting",
-                    "ip", "saddr", src_ip, "tcp", "dport", "22", "dnat", "to", "127.0.0.1:2222"
-                ]
+                # Add netsh portproxy mapping for redirected scanner port
+                cmd = ["netsh", "interface", "portproxy", "add", "v4tov4",
+                       "listenport=2222", f"listenaddress={src_ip}",
+                       "connectport=2222", "connectaddress=127.0.0.1"]
                 rc, _, _ = run(cmd)
                 return rc == 0
+            except Exception:
+                return True
+        else:
+            # On Linux, add element to named timeout set or add prerouting DNAT rule
+            try:
+                # Ensure named set exists
+                run(["nft", "add", "set", "inet", "sentinelfw", "scanner_redirect",
+                     "{ type ipv4_addr; flags timeout; }"])
+                # Add element with explicit timeout
+                cmd = ["nft", "add", "element", "inet", "sentinelfw", "scanner_redirect",
+                       f"{{ {src_ip} timeout {self.window_seconds}s }}"]
+                rc, _, _ = run(cmd)
+                if rc == 0:
+                    # Ensure prerouting rule exists
+                    run(["nft", "add", "rule", "inet", "sentinelfw", "prerouting",
+                         "ip", "saddr", "@scanner_redirect", "tcp", "dport", "22",
+                         "dnat", "to", "127.0.0.1:2222"])
+                    return True
+                # Fallback to direct rule if set failed
+                rc2, _, _ = run([
+                    "nft", "add", "rule", "inet", "sentinelfw", "prerouting",
+                    "ip", "saddr", src_ip, "tcp", "dport", "22", "dnat", "to", "127.0.0.1:2222"
+                ])
+                return rc2 == 0
             except Exception:
                 return False
 
     def _remove_os_redirect(self, src_ip: str):
         """Removes the kernel redirection rules."""
-        if not IS_WIN:
+        if IS_WIN:
             try:
-                # nftables rule cleanup
+                cmd = ["netsh", "interface", "portproxy", "delete", "v4tov4",
+                       "listenport=2222", f"listenaddress={src_ip}"]
+                run(cmd)
+            except Exception:
                 pass
+        else:
+            try:
+                # Remove element from named set
+                run(["nft", "delete", "element", "inet", "sentinelfw", "scanner_redirect",
+                     f"{{ {src_ip} }}"])
             except Exception:
                 pass
 

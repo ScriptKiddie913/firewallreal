@@ -1,0 +1,7 @@
+{
+  "id": "sfw-hp-ftp-001",
+  "name": "Credentials submitted to FTP honeypot",
+  "severity": "high",
+  "action": "block",
+  "selection": {"kind": "honeypot_ftp_creds"}
+}

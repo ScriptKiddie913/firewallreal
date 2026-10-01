@@ -1,0 +1,7 @@
+{
+  "id": "sfw-dns-001",
+  "name": "Suspected DNS tunneling",
+  "severity": "high",
+  "action": "monitor",
+  "selection": {"kind": "dns_tunnel_suspect"}
+}

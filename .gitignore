@@ -1,0 +1,11 @@
+_test_data/
+*.pcap
+*.pem
+*.key
+*.crt
+__pycache__/
+*.pyc
+*.pyo
+.pytest_cache/
+bin/
+

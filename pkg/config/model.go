@@ -14,18 +14,23 @@ import (
 	"sync"
 	"time"
 
-	"gopkg.in/yaml.v3"
 )
 
 // Action defines the firewall policy decision.
 type Action string
 
 const (
-	ActionAccept   Action = "accept"
-	ActionDeny     Action = "deny"
-	ActionReject   Action = "reject"
-	ActionRedirect Action = "redirect"
-	ActionDecoy    Action = "decoy"
+	ActionAccept     Action = "accept"
+	ActionDeny       Action = "deny"
+	ActionReject     Action = "reject"
+	ActionLog        Action = "log"
+	ActionRateLimit  Action = "rate_limit"
+	ActionQuarantine Action = "quarantine"
+	ActionRedirect   Action = "redirect"
+	ActionInspect    Action = "inspect"
+	ActionChallenge  Action = "challenge"
+	ActionTarpit     Action = "tarpit"
+	ActionDecoy      Action = "decoy"
 )
 
 // NATType defines the address translation mode.
@@ -82,22 +87,40 @@ type NATRule struct {
 	IPPool      string  `json:"ip_pool,omitempty" yaml:"ip_pool,omitempty"`
 }
 
-// PolicyRule defines a single firewall policy.
+// PolicyRule defines a single canonical firewall policy.
 type PolicyRule struct {
-	ID          int               `json:"id" yaml:"id"`
-	Name        string            `json:"name" yaml:"name"`
-	SrcZone     string            `json:"src_zone" yaml:"src_zone"`
-	DstZone     string            `json:"dst_zone" yaml:"dst_zone"`
-	SrcAddr     []string          `json:"src_addr" yaml:"src_addr"`
-	DstAddr     []string          `json:"dst_addr" yaml:"dst_addr"`
-	Services    []string          `json:"services" yaml:"services"`
-	Apps        []string          `json:"apps,omitempty" yaml:"apps,omitempty"`
-	Action      Action            `json:"action" yaml:"action"`
-	NAT         *NATRule          `json:"nat,omitempty" yaml:"nat,omitempty"`
-	Inspection  InspectionProfile `json:"inspection,omitempty" yaml:"inspection,omitempty"`
-	LogTraffic  bool              `json:"log_traffic" yaml:"log_traffic"`
-	Enabled     bool              `json:"enabled" yaml:"enabled"`
-	ShapingBandwidth string       `json:"shaping_bandwidth,omitempty" yaml:"shaping_bandwidth,omitempty"`
+	ID               int               `json:"id" yaml:"id"`
+	Name             string            `json:"name" yaml:"name"`
+	Priority         int               `json:"priority,omitempty" yaml:"priority,omitempty"`
+	SrcZone          string            `json:"src_zone" yaml:"src_zone"`
+	DstZone          string            `json:"dst_zone" yaml:"dst_zone"`
+	SrcAddr          []string          `json:"src_addr" yaml:"src_addr"`
+	DstAddr          []string          `json:"dst_addr" yaml:"dst_addr"`
+	Services         []string          `json:"services" yaml:"services"`
+	Apps             []string          `json:"apps,omitempty" yaml:"apps,omitempty"`
+	AppCategories    []string          `json:"app_categories,omitempty" yaml:"app_categories,omitempty"`
+	Users            []string          `json:"users,omitempty" yaml:"users,omitempty"`
+	Groups           []string          `json:"groups,omitempty" yaml:"groups,omitempty"`
+	Devices          []string          `json:"devices,omitempty" yaml:"devices,omitempty"`
+	DevicePosture    string            `json:"device_posture,omitempty" yaml:"device_posture,omitempty"`
+	Domains          []string          `json:"domains,omitempty" yaml:"domains,omitempty"`
+	URLCategories    []string          `json:"url_categories,omitempty" yaml:"url_categories,omitempty"`
+	SrcCountries     []string          `json:"src_countries,omitempty" yaml:"src_countries,omitempty"`
+	DstCountries     []string          `json:"dst_countries,omitempty" yaml:"dst_countries,omitempty"`
+	ASNs             []int             `json:"asns,omitempty" yaml:"asns,omitempty"`
+	ThreatScoreMin   int               `json:"threat_score_min,omitempty" yaml:"threat_score_min,omitempty"`
+	ThreatScoreMax   int               `json:"threat_score_max,omitempty" yaml:"threat_score_max,omitempty"`
+	IOCMatch         bool              `json:"ioc_match,omitempty" yaml:"ioc_match,omitempty"`
+	Schedule         string            `json:"schedule,omitempty" yaml:"schedule,omitempty"`
+	DSCP             int               `json:"dscp,omitempty" yaml:"dscp,omitempty"`
+	TTL              int64             `json:"ttl,omitempty" yaml:"ttl,omitempty"`
+	TenantID         string            `json:"tenant_id,omitempty" yaml:"tenant_id,omitempty"`
+	Action           Action            `json:"action" yaml:"action"`
+	NAT              *NATRule          `json:"nat,omitempty" yaml:"nat,omitempty"`
+	Inspection       InspectionProfile `json:"inspection,omitempty" yaml:"inspection,omitempty"`
+	LogTraffic       bool              `json:"log_traffic" yaml:"log_traffic"`
+	Enabled          bool              `json:"enabled" yaml:"enabled"`
+	ShapingBandwidth string            `json:"shaping_bandwidth,omitempty" yaml:"shaping_bandwidth,omitempty"`
 }
 
 // StaticRoute defines a static L3 route.
@@ -251,14 +274,14 @@ func NewConfigManager(baseDir string) (*ConfigManager, error) {
 	cm := &ConfigManager{
 		baseDir: baseDir,
 	}
-	activePath := filepath.Join(baseDir, "active.yaml")
+	activePath := filepath.Join(baseDir, "active.json")
 	if _, err := os.Stat(activePath); err == nil {
 		data, err := os.ReadFile(activePath)
 		if err != nil {
 			return nil, err
 		}
 		var cfg GatewayConfig
-		if err := yaml.Unmarshal(data, &cfg); err != nil {
+		if err := json.Unmarshal(data, &cfg); err != nil {
 			return nil, err
 		}
 		cm.activeConfig = &cfg
@@ -348,11 +371,11 @@ func (cm *ConfigManager) Diff() (string, error) {
 	if cm.candidate == nil {
 		return "No candidate configuration present.", nil
 	}
-	activeYAML, _ := yaml.Marshal(cm.activeConfig)
-	candidateYAML, _ := yaml.Marshal(cm.candidate)
+	activeJSON, _ := json.MarshalIndent(cm.activeConfig, "", "  ")
+	candidateJSON, _ := json.MarshalIndent(cm.candidate, "", "  ")
 
 	return fmt.Sprintf("--- Active Configuration\n+++ Candidate Configuration\n\n%s\n--- CANDIDATE ---\n%s",
-		string(activeYAML), string(candidateYAML)), nil
+		string(activeJSON), string(candidateJSON)), nil
 }
 
 // Commit applies the candidate configuration with commit-confirm semantics.
@@ -431,11 +454,11 @@ func (cm *ConfigManager) Rollback() error {
 }
 
 func (cm *ConfigManager) saveActiveLocked() error {
-	data, err := yaml.Marshal(cm.activeConfig)
+	data, err := json.MarshalIndent(cm.activeConfig, "", "  ")
 	if err != nil {
 		return err
 	}
-	activePath := filepath.Join(cm.baseDir, "active.yaml")
+	activePath := filepath.Join(cm.baseDir, "active.json")
 	return os.WriteFile(activePath, data, 0600)
 }
 

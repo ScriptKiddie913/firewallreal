@@ -1,0 +1,7 @@
+{
+  "id": "sfw-hp-telnet-001",
+  "name": "Credentials submitted to Telnet honeypot",
+  "severity": "high",
+  "action": "block",
+  "selection": {"kind": "honeypot_telnet_creds"}
+}

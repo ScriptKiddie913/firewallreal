@@ -27,14 +27,15 @@ type WireGuardPeer struct {
 
 // WireGuardServer manages the WireGuard kernel interface and client IPAM.
 type WireGuardServer struct {
-	mu         sync.RWMutex
+	mu            sync.RWMutex
 	interfaceName string
-	listenPort int
-	serverPriv string
-	serverPub  string
-	subnetCIDR string
-	nextIP     net.IP
-	peers      map[string]*WireGuardPeer // publicKey -> peer
+	listenPort    int
+	endpoint      string
+	serverPriv    string
+	serverPub     string
+	subnetCIDR    string
+	nextIP        net.IP
+	peers         map[string]*WireGuardPeer // publicKey -> peer
 }
 
 // NewWireGuardServer initializes the remote access VPN server.
@@ -54,13 +55,21 @@ func NewWireGuardServer(iface string, port int, subnet string) (*WireGuardServer
 
 	return &WireGuardServer{
 		interfaceName: iface,
-		listenPort: port,
-		serverPriv: priv,
-		serverPub:  pub,
-		subnetCIDR: subnet,
-		nextIP:     next,
-		peers:      make(map[string]*WireGuardPeer),
+		listenPort:    port,
+		endpoint:      fmt.Sprintf("vpn.company.com:%d", port),
+		serverPriv:    priv,
+		serverPub:     pub,
+		subnetCIDR:    subnet,
+		nextIP:        next,
+		peers:         make(map[string]*WireGuardPeer),
 	}, nil
+}
+
+// SetEndpoint overrides the public server endpoint (e.g. "vpn.customer.net:51820" or "203.0.113.1:51820").
+func (s *WireGuardServer) SetEndpoint(ep string) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	s.endpoint = ep
 }
 
 // GenerateKeyPair generates a Curve25519 private/public keypair.
@@ -122,10 +131,17 @@ DNS = %s
 
 [Peer]
 PublicKey = %s
-Endpoint = vpn.company.com:%d
+Endpoint = %s
 AllowedIPs = %s
 PersistentKeepalive = 25
-`, cPriv, clientIP, dns, s.serverPub, s.listenPort, allowed)
+`, cPriv, clientIP, dns, s.serverPub, s.endpoint, allowed)
 
 	return clientConfig, peer, nil
+}
+
+// GetPublicKey returns the Base64-encoded WireGuard server public key.
+func (s *WireGuardServer) GetPublicKey() string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	return s.serverPub
 }

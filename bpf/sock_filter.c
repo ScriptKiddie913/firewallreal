@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-only
 /*
- * SentinelFW 3.0 Endpoint Socket Filter (cgroup / sock_ops)
+ * SentinelFW 4.0 Endpoint Socket Filter (cgroup / sock_ops)
  * Enforces per-application network authorization at socket connect/bind time.
  */
 
@@ -10,6 +10,10 @@
 #ifndef SEC
 #define SEC(NAME) __attribute__((section(NAME), used))
 #endif
+
+// BPF helper function prototypes
+static void *(*bpf_map_lookup_elem)(void *map, const void *key) = (void *) BPF_FUNC_map_lookup_elem;
+static __u64 (*bpf_get_current_cgroup_id)(void) = (void *) BPF_FUNC_get_current_cgroup_id;
 
 // Allowed/Blocked process cgroup ID or socket cookie map
 struct {
@@ -22,7 +26,18 @@ struct {
 SEC("cgroup/connect4")
 int sock_connect4_filter(struct bpf_sock_addr *ctx) {
     // Evaluation hook for outbound IPv4 TCP/UDP connect()
-    // By default, allow traffic unless flagged in endpoint_sock_policy
+    __u64 cgroup_id = bpf_get_current_cgroup_id();
+    __u32 *action = bpf_map_lookup_elem(&endpoint_sock_policy, &cgroup_id);
+
+    if (action) {
+        if (*action == 0) {
+            // Explicit drop/block for this cgroup/process
+            return 0;
+        }
+        return 1;
+    }
+
+    // Default policy: allow unless explicitly blocked by endpoint security policy
     return 1;
 }
 

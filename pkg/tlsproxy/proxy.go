@@ -3,12 +3,19 @@
 package tlsproxy
 
 import (
+	"bytes"
+	"crypto/ecdsa"
+	"crypto/elliptic"
 	"crypto/rand"
 	"crypto/rsa"
+	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
 	"errors"
+	"fmt"
+	"io"
+	"log"
 	"math/big"
 	"net"
 	"strings"
@@ -44,11 +51,13 @@ type ProxyConfig struct {
 
 // TLSInspectionEngine manages the internal CA and dynamic leaf certificate minting.
 type TLSInspectionEngine struct {
-	mu           sync.RWMutex
-	caCert       *x509.Certificate
-	caPrivKey    *rsa.PrivateKey
-	leafCache    map[string]*tlsCertEntry
-	bypassEngine map[string]bool
+	mu                  sync.RWMutex
+	caCert              *x509.Certificate
+	caPrivKey           *ecdsa.PrivateKey
+	leafCache           map[string]*tlsCertEntry
+	bypassEngine        map[string]bool
+	pinningFailures     map[string]int
+	autoBypassThreshold int
 }
 
 type tlsCertEntry struct {
@@ -56,9 +65,9 @@ type tlsCertEntry struct {
 	keyPEM  []byte
 }
 
-// NewTLSInspectionEngine initializes the forward proxy with a self-generated or imported Root CA.
+// NewTLSInspectionEngine initializes the forward proxy with a self-generated or imported Root CA using ECDSA P-256.
 func NewTLSInspectionEngine() (*TLSInspectionEngine, error) {
-	caPriv, err := rsa.GenerateKey(rand.Reader, 2048)
+	caPriv, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
 		return nil, err
 	}
@@ -89,10 +98,12 @@ func NewTLSInspectionEngine() (*TLSInspectionEngine, error) {
 	}
 
 	engine := &TLSInspectionEngine{
-		caCert:       caCert,
-		caPrivKey:    caPriv,
-		leafCache:    make(map[string]*tlsCertEntry),
-		bypassEngine: make(map[string]bool),
+		caCert:              caCert,
+		caPrivKey:           caPriv,
+		leafCache:           make(map[string]*tlsCertEntry),
+		bypassEngine:        make(map[string]bool),
+		pinningFailures:     make(map[string]int),
+		autoBypassThreshold: 3,
 	}
 
 	for _, domain := range DefaultPrivacyBypassList {
@@ -103,6 +114,24 @@ func NewTLSInspectionEngine() (*TLSInspectionEngine, error) {
 }
 
 // ShouldBypass verifies if the target SNI matches privacy exemptions (banking, healthcare, gov).
+
+// RecordPinningFailure tracks downstream client pinning rejections and triggers auto-bypass if threshold is reached.
+func (e *TLSInspectionEngine) RecordPinningFailure(sni string) bool {
+	e.mu.Lock()
+	defer e.mu.Unlock()
+
+	sni = strings.ToLower(strings.TrimSpace(sni))
+	if sni == "" {
+		return false
+	}
+	e.pinningFailures[sni]++
+	if e.pinningFailures[sni] >= e.autoBypassThreshold {
+		e.bypassEngine[sni] = true
+		return true
+	}
+	return false
+}
+
 func (e *TLSInspectionEngine) ShouldBypass(sni string) bool {
 	e.mu.RLock()
 	defer e.mu.RUnlock()
@@ -123,16 +152,20 @@ func (e *TLSInspectionEngine) ShouldBypass(sni string) bool {
 	return false
 }
 
-// MintLeafCertificate dynamically creates a valid TLS leaf certificate for the inspected domain.
+// MintLeafCertificate dynamically creates a valid TLS leaf certificate for the inspected domain using ECDSA P-256.
 func (e *TLSInspectionEngine) MintLeafCertificate(domain string) (certPEM, keyPEM []byte, err error) {
-	e.mu.Lock()
-	defer e.mu.Unlock()
+	domain = strings.ToLower(strings.TrimSpace(domain))
 
+	// Fast path: read lock check for cached certificate
+	e.mu.RLock()
 	if entry, ok := e.leafCache[domain]; ok {
+		e.mu.RUnlock()
 		return entry.certPEM, entry.keyPEM, nil
 	}
+	e.mu.RUnlock()
 
-	leafPriv, err := rsa.GenerateKey(rand.Reader, 2048)
+	// Cache miss: generate ultra-fast ECDSA P-256 leaf key (microseconds vs 20ms+ RSA-2048)
+	leafPriv, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -147,7 +180,7 @@ func (e *TLSInspectionEngine) MintLeafCertificate(domain string) (certPEM, keyPE
 		DNSNames:     []string{domain},
 		NotBefore:    time.Now().Add(-10 * time.Minute),
 		NotAfter:     time.Now().Add(24 * time.Hour), // Short 24h validity
-		KeyUsage:     x509.KeyUsageDigitalSignature | x509.KeyUsageKeyEncipherment,
+		KeyUsage:     x509.KeyUsageDigitalSignature,
 		ExtKeyUsage:  []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
 	}
 
@@ -161,10 +194,19 @@ func (e *TLSInspectionEngine) MintLeafCertificate(domain string) (certPEM, keyPE
 		return nil, nil, err
 	}
 
-	certPEM = pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: certBytes})
-	keyPEM = pem.EncodeToMemory(&pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(leafPriv)})
+	keyBytes, err := x509.MarshalECPrivateKey(leafPriv)
+	if err != nil {
+		return nil, nil, err
+	}
 
+	certPEM = pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: certBytes})
+	keyPEM = pem.EncodeToMemory(&pem.Block{Type: "EC PRIVATE KEY", Bytes: keyBytes})
+
+	// Thread-safe update of the cache
+	e.mu.Lock()
 	e.leafCache[domain] = &tlsCertEntry{certPEM: certPEM, keyPEM: keyPEM}
+	e.mu.Unlock()
+
 	return certPEM, keyPEM, nil
 }
 
@@ -188,3 +230,282 @@ func (e *TLSInspectionEngine) ValidateUpstreamCertificate(certs []*x509.Certific
 
 	return nil
 }
+
+// TLSProxy executes the forward proxy accept loop and stream inspection.
+type TLSProxy struct {
+	cfg           *ProxyConfig
+	engine        *TLSInspectionEngine
+	dlp           *DLPEngine
+	fileInspector *FileInspector
+	activeConns   sync.WaitGroup
+	quit          chan struct{}
+}
+
+// NewTLSProxy initializes a full proxy with inspection engines.
+func NewTLSProxy(cfg *ProxyConfig) (*TLSProxy, error) {
+	if cfg == nil {
+		cfg = &ProxyConfig{
+			Mode:               ModeFullInspection,
+			MinTLSVersion:      tls.VersionTLS12,
+			StrictUpstreamCert: true,
+			BypassList:         DefaultPrivacyBypassList,
+		}
+	}
+	engine, err := NewTLSInspectionEngine()
+	if err != nil {
+		return nil, fmt.Errorf("failed to init TLS inspection engine: %w", err)
+	}
+	for _, domain := range cfg.BypassList {
+		engine.bypassEngine[domain] = true
+	}
+
+	return &TLSProxy{
+		cfg:           cfg,
+		engine:        engine,
+		dlp:           NewDLPEngine(),
+		fileInspector: NewFileInspector(),
+		quit:          make(chan struct{}),
+	}, nil
+}
+
+// Serve begins accepting transparent or forwarded TLS connections.
+func (p *TLSProxy) Serve(ln net.Listener) error {
+	defer ln.Close()
+	log.Printf("[INFO] SentinelGate TLS Inspection Proxy listening on %s (Mode: %s)", ln.Addr(), p.cfg.Mode)
+
+	for {
+		conn, err := ln.Accept()
+		if err != nil {
+			select {
+			case <-p.quit:
+				return nil
+			default:
+				log.Printf("[WARN] Accept error: %v", err)
+				continue
+			}
+		}
+
+		p.activeConns.Add(1)
+		go func(c net.Conn) {
+			defer p.activeConns.Done()
+			p.handleConn(c)
+		}(conn)
+	}
+}
+
+// Close gracefully stops the proxy.
+func (p *TLSProxy) Close() error {
+	close(p.quit)
+	p.activeConns.Wait()
+	return nil
+}
+
+// peekSNI reads the ClientHello record to extract SNI without consuming data from the downstream connection.
+func peekSNI(r io.Reader) (string, io.Reader, error) {
+	header := make([]byte, 5)
+	n, err := io.ReadFull(r, header)
+	if err != nil {
+		return "", bytes.NewReader(header[:n]), err
+	}
+
+	// Quick check for TLS Handshake record (0x16)
+	if header[0] != 0x16 {
+		return "", io.MultiReader(bytes.NewReader(header), r), nil
+	}
+
+	recordLen := int(header[3])<<8 | int(header[4])
+	if recordLen <= 0 || recordLen > 16384 {
+		return "", io.MultiReader(bytes.NewReader(header), r), nil
+	}
+
+	body := make([]byte, recordLen)
+	if _, err := io.ReadFull(r, body); err != nil {
+		combined := io.MultiReader(bytes.NewReader(header), bytes.NewReader(body), r)
+		return "", combined, err
+	}
+
+	data := append(header, body...)
+	combinedReader := io.MultiReader(bytes.NewReader(data), r)
+
+	if len(data) < 43 || data[5] != 0x01 {
+		return "", combinedReader, nil
+	}
+
+	// Minimal ClientHello parser to extract SNI extension
+	sni := ""
+	pos := 43 // Skip record header + version + random
+	if pos < len(data) {
+		sessionIDLen := int(data[pos])
+		pos += 1 + sessionIDLen
+	}
+	if pos+2 <= len(data) {
+		cipherSuiteLen := int(data[pos])<<8 | int(data[pos+1])
+		pos += 2 + cipherSuiteLen
+	}
+	if pos+1 <= len(data) {
+		compressionLen := int(data[pos])
+		pos += 1 + compressionLen
+	}
+	if pos+2 <= len(data) {
+		extTotalLen := int(data[pos])<<8 | int(data[pos+1])
+		pos += 2
+		end := pos + extTotalLen
+		if end > len(data) {
+			end = len(data)
+		}
+		for pos+4 <= end {
+			extType := int(data[pos])<<8 | int(data[pos+1])
+			extLen := int(data[pos+2])<<8 | int(data[pos+3])
+			pos += 4
+			if extType == 0 && pos+extLen <= end { // Server Name Indication
+				sniPos := pos + 2 // skip server name list length
+				if sniPos+3 <= end {
+					nameLen := int(data[sniPos+1])<<8 | int(data[sniPos+2])
+					if sniPos+3+nameLen <= end {
+						sni = string(data[sniPos+3 : sniPos+3+nameLen])
+					}
+				}
+				break
+			}
+			pos += extLen
+		}
+	}
+
+	return sni, combinedReader, nil
+}
+
+func (p *TLSProxy) handleConn(clientConn net.Conn) {
+	defer clientConn.Close()
+
+	sni, stream, err := peekSNI(clientConn)
+	if err != nil {
+		return
+	}
+	if sni == "" {
+		sni = "default.local"
+	}
+
+	targetAddr := net.JoinHostPort(sni, "443")
+
+	// Check if this domain is on the privacy bypass list
+	if p.cfg.Mode == ModeBypass || p.engine.ShouldBypass(sni) {
+		p.spliceDirect(clientConn, stream, targetAddr)
+		return
+	}
+
+	// Dynamic certificate minting for inspection
+	certPEM, keyPEM, err := p.engine.MintLeafCertificate(sni)
+	if err != nil {
+		log.Printf("[ERROR] Leaf mint error for %s: %v", sni, err)
+		return
+	}
+
+	leafTLSCert, err := tls.X509KeyPair(certPEM, keyPEM)
+	if err != nil {
+		log.Printf("[ERROR] Keypair parse error: %v", err)
+		return
+	}
+
+	// Dial upstream with strict verification
+	upstreamTLS, err := tls.Dial("tcp", targetAddr, &tls.Config{
+		ServerName:         sni,
+		MinVersion:         tls.VersionTLS12,
+		InsecureSkipVerify: false,
+	})
+	if err != nil {
+		log.Printf("[WARN] Upstream TLS dial failed for %s: %v", targetAddr, err)
+		return
+	}
+	defer upstreamTLS.Close()
+
+	if p.cfg.StrictUpstreamCert {
+		certs := upstreamTLS.ConnectionState().PeerCertificates
+		if err := p.engine.ValidateUpstreamCertificate(certs, sni); err != nil {
+			log.Printf("[SECURITY] Upstream cert rejected for %s: %v", sni, err)
+			return
+		}
+	}
+
+	// Client TLS handshake with minted leaf
+	tlsDownstream := tls.Server(&bufferedConn{Conn: clientConn, r: stream}, &tls.Config{
+		Certificates: []tls.Certificate{leafTLSCert},
+		MinVersion:   tls.VersionTLS12,
+	})
+	if err := tlsDownstream.Handshake(); err != nil {
+		return
+	}
+	defer tlsDownstream.Close()
+
+	// Bidirectional stream copy with inspection tap
+	var wg sync.WaitGroup
+	wg.Add(2)
+
+	// Downstream -> Upstream (Inspection for DLP)
+	go func() {
+		defer wg.Done()
+		buf := make([]byte, 16384)
+		for {
+			n, rerr := tlsDownstream.Read(buf)
+			if n > 0 {
+				payload := string(buf[:n])
+				violations := p.dlp.ScanStream(payload)
+				if len(violations) > 0 {
+					log.Printf("[DLP VIOLATION] Domain %s leaked: %s", sni, violations[0].Type)
+				}
+				if _, werr := upstreamTLS.Write(buf[:n]); werr != nil {
+					break
+				}
+			}
+			if rerr != nil {
+				break
+			}
+		}
+	}()
+
+	// Upstream -> Downstream (Inspection for Malicious Binaries / AV)
+	go func() {
+		defer wg.Done()
+		buf := make([]byte, 16384)
+		for {
+			n, rerr := upstreamTLS.Read(buf)
+			if n > 0 {
+				verdict := p.fileInspector.InspectBuffer(sni+"_stream", buf[:n])
+				if verdict.Verdict == VerdictMalicious {
+					log.Printf("[AV DETECTED] Threat %s blocked in stream %s", verdict.ThreatName, sni)
+					break
+				}
+				if _, werr := tlsDownstream.Write(buf[:n]); werr != nil {
+					break
+				}
+			}
+			if rerr != nil {
+				break
+			}
+		}
+	}()
+
+	wg.Wait()
+}
+
+func (p *TLSProxy) spliceDirect(downstream net.Conn, downstreamReader io.Reader, targetAddr string) {
+	upstream, err := net.DialTimeout("tcp", targetAddr, 5*time.Second)
+	if err != nil {
+		return
+	}
+	defer upstream.Close()
+
+	go func() {
+		io.Copy(upstream, downstreamReader)
+	}()
+	io.Copy(downstream, upstream)
+}
+
+type bufferedConn struct {
+	net.Conn
+	r io.Reader
+}
+
+func (b *bufferedConn) Read(p []byte) (int, error) {
+	return b.r.Read(p)
+}
+

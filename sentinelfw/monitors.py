@@ -244,7 +244,9 @@ class Housekeeper(threading.Thread):
                     threading.Thread(target=self._update, daemon=True).start()
                 if t - self.last_beat > 300:
                     self.last_beat = t
-                    event("heartbeat", bans=len(e.store.bans), blocked_ranges=len(e.lists.ipset),
-                          blocked_domains=len(e.lists.domains), profile=e.cfg["enforcement_profile"], **dict(e.stats))
+                    hb = dict(e.stats)
+                    hb.update(bans=len(e.store.bans), blocked_ranges=len(e.lists.ipset),
+                              blocked_domains=len(e.lists.domains), profile=e.cfg["enforcement_profile"])
+                    event("heartbeat", **hb)
             except Exception as ex:  # noqa: BLE001
                 event("housekeeper_error", "medium", error=repr(ex))

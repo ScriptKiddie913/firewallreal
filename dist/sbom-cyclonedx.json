@@ -1,0 +1,277 @@
+{
+  "bomFormat": "CycloneDX",
+  "specVersion": "1.5",
+  "serialNumber": "urn:uuid:sentinelfw-sbom-1790875363",
+  "version": 1,
+  "metadata": {
+    "timestamp": "2026-10-01T17:22:43Z",
+    "tools": [
+      {
+        "vendor": "SentinelFW Project",
+        "name": "generate_sbom.py",
+        "version": "4.0.0"
+      }
+    ],
+    "component": {
+      "type": "application",
+      "name": "SentinelFW",
+      "version": "4.0.0",
+      "description": "Enterprise Next-Generation Firewall and Unified Security Fabric"
+    }
+  },
+  "components": [
+    {
+      "type": "application",
+      "name": "sentinelfw-core",
+      "version": "4.0.0",
+      "description": "SentinelFW Next-Generation Firewall & Autonomous Response Engine",
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0"
+          }
+        }
+      ],
+      "purl": "pkg:generic/sentinelfw@4.0.0"
+    },
+    {
+      "type": "framework",
+      "name": "sentinelgate-dataplane",
+      "version": "4.0.0",
+      "description": "Go/nftables Stateful Dataplane & NAT Engine",
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0"
+          }
+        }
+      ],
+      "purl": "pkg:golang/github.com/sentinelfw/sentinelfw/pkg/dataplane@4.0.0"
+    },
+    {
+      "type": "operating-system",
+      "name": "ebpf-xdp-prefilter",
+      "version": "4.0.0",
+      "description": "Ingress XDP packet pre-filter and line-rate scrubber",
+      "licenses": [
+        {
+          "license": {
+            "id": "GPL-2.0-only"
+          }
+        }
+      ],
+      "purl": "pkg:generic/ebpf-xdp-prefilter@4.0.0"
+    },
+    {
+      "type": "library",
+      "name": "python-stdlib",
+      "version": "3.8+",
+      "description": "Zero 3rd-party pip dependency runtime environment",
+      "licenses": [
+        {
+          "license": {
+            "id": "PSF-2.0"
+          }
+        }
+      ]
+    },
+    {
+      "type": "file",
+      "name": "sentinelfw/engine.py",
+      "version": "4.0.0",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "cc5f692c17886f1d245e93724a05ccb7469505804fb2302f0debf1f4548868ef"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0"
+          }
+        }
+      ]
+    },
+    {
+      "type": "file",
+      "name": "sentinelfw/stateful_engine.py",
+      "version": "4.0.0",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "02cfd108d9b35c7fd5aef45ab2acb9db6cff57941ed57af8477fcaa2112d004c"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0"
+          }
+        }
+      ]
+    },
+    {
+      "type": "file",
+      "name": "sentinelfw/policies.py",
+      "version": "4.0.0",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "bbb955ae3c7db5dbe0e4b83cbb61fdf0a2412458ea681c05b6ee4d3cd8d9cb26"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0"
+          }
+        }
+      ]
+    },
+    {
+      "type": "file",
+      "name": "sentinelfw/identity.py",
+      "version": "4.0.0",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "434800192aa36332433a75594ebc103ed0541effa08f1d952348a8b1ca6d0c5a"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0"
+          }
+        }
+      ]
+    },
+    {
+      "type": "file",
+      "name": "sentinelfw/ips.py",
+      "version": "4.0.0",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "4c425a95faca5ba33e8954c371dd32c705c89085b19c2fcc2ab634150067680c"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0"
+          }
+        }
+      ]
+    },
+    {
+      "type": "file",
+      "name": "sentinelfw/malware.py",
+      "version": "4.0.0",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "6dc4b0b0326e30fb38dd02a8bfb2ac7ac90acb6c574636b00318acb52717a185"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0"
+          }
+        }
+      ]
+    },
+    {
+      "type": "file",
+      "name": "sentinelfw/dlp.py",
+      "version": "4.0.0",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "6302b155847631c4a89a8e239a8c45d392dd40b04b63475d0fca66ae6da37f76"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0"
+          }
+        }
+      ]
+    },
+    {
+      "type": "file",
+      "name": "sentinelfw/vdom.py",
+      "version": "4.0.0",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "f2783e1b0ec1cd487e75de48ce2ccc6813755cfe2c03f3ad2fc8686817f48133"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0"
+          }
+        }
+      ]
+    },
+    {
+      "type": "file",
+      "name": "sentinelfw/vault.py",
+      "version": "4.0.0",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "e7a7168b251e643dfd466d6834b098a4104f8214a7e5ea1a00c13d6bf45e7fcc"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0"
+          }
+        }
+      ]
+    },
+    {
+      "type": "file",
+      "name": "sentinelfw/webui.py",
+      "version": "4.0.0",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "351195b0d185236d898feebe4329820baae9c681021f0096f73d7bee7229ee8b"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "Apache-2.0"
+          }
+        }
+      ]
+    },
+    {
+      "type": "file",
+      "name": "bpf/xdp_prefilter.c",
+      "version": "4.0.0",
+      "hashes": [
+        {
+          "alg": "SHA-256",
+          "content": "00fe44069d5fafc6768a9e4e4561c5619c01d7242f201cfa35622f68a679d58c"
+        }
+      ],
+      "licenses": [
+        {
+          "license": {
+            "id": "GPL-2.0-only"
+          }
+        }
+      ]
+    }
+  ]
+}

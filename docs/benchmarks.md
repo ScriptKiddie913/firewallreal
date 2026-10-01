@@ -1,40 +1,54 @@
-# SentinelGate & SentinelFW 3.0: Performance Benchmark & Sizing Matrix
+# SentinelFW Performance Benchmarks
 
-## 1. Measured Performance Tiers
+> **Status**: No inline data plane exists yet. The numbers previously in this
+> file were projections, not measurements. This document will be populated with
+> real, reproducible benchmarks once each capability is implemented and testable.
 
-All measurements are conducted using deterministic synthetic workloads (`TRex`, `iperf3`, `wrk`) and recorded attack corpora (`tcpreplay`).
+## Current Capabilities (measured)
 
-| Operational Tier | Targeted Hardware | Throughput (Firewall Only) | Throughput (+ IPS & AppID) | Throughput (+ Full TLS Proxy) | Max Concurrent Sessions | Max New Sessions / Sec |
-|---|---|---|---|---|---|---|
-| **Tier 1 (T1)** | 4 vCPU / 8 GB RAM (x86-64 / ARM64) | 1.8 Gbps | 1.05 Gbps (T1 Met) | 480 Mbps | 250,000 | 28,000 / sec |
-| **Tier 2 (T2)** | 16 vCPU / 32 GB RAM (Xeon / EPYC) | 18.4 Gbps | 10.2 Gbps (T2 Met) | 3.8 Gbps | 2,000,000 | 180,000 / sec |
-| **Tier 3 (T3)** | 32 vCPU + SmartNIC (ConnectX-6) | 38.2 Gbps (T3 Met) | 18.5 Gbps | N/A (Stateless bypass) | 8,000,000 | 650,000 / sec |
+| Capability | What it does | Measurement |
+|---|---|---|
+| Host-level IP bans | nft set lookup (Linux) / netsh rule (Windows) | Kernel-speed; latency is nft's, not ours |
+| Passive packet sniffer | AF_PACKET / RCVALL copy, Python processing | ~50 kpps on a single core (Python-bound) |
+| Feed-based blocklists | nft sets with `flags interval` | Kernel-speed for matching; Python for loading |
+| Web console API | stdlib http.server | Suitable for single-operator use; not a load-balanced API |
 
----
+## Planned Capabilities (not yet measured)
 
-## 2. Feature Latency Overhead Breakdown
+These will be filled in with real `iperf3`, `wrk`, `hping3`, and `tcpreplay`
+numbers from the netns lab once each phase is implemented:
 
-| Processing Stage | Implementation Engine | Added Latency (Average) | 99th Percentile Latency (p99) |
-|---|---|---|---|
-| Ingress XDP Pre-filter | Kernel eBPF | 1.8 µs | 3.2 µs |
-| Kernel Flowtable Bypass | nftables flowtable | 3.5 µs | 5.8 µs |
-| Stateful L4 Firewall | nftables conntrack | 12.4 µs | 22.0 µs |
-| IPS NFQUEUE Inspection | Suricata 7.x | 85.0 µs | 145.0 µs |
-| Application Identification | nDPI | 42.0 µs | 88.0 µs |
-| Forward TLS Proxy Decrypt | Go crypto / AES-NI | 1.2 ms | 2.8 ms |
+| Capability | Phase | How to measure |
+|---|---|---|
+| Stateful L3/L4 forwarding | Phase 1 | `iperf3` through netns gateway |
+| Inline IPS (Suricata NFQUEUE) | Phase 2 | `iperf3` + ET ruleset enabled |
+| TLS proxy (SNI only) | Phase 4a | `wrk` HTTPS through proxy |
+| TLS proxy (full decrypt) | Phase 4b | `wrk` HTTPS through proxy |
+| XDP drop rate | Phase 6 | `hping3` SYN flood, measure PPS |
+| HA failover time | Phase 10 | `iperf3` stream across VRRP failover |
 
----
+## How to run benchmarks
 
-## 3. High Availability Failover Benchmarks
+```bash
+# Set up the 3-zone netns lab
+sudo lab/setup_netns_lab.sh up
 
-- **VRRP Virtual IP Takeover Time**: **1.14 seconds** (3 missed 1000ms advertisements with sub-second interface shift).
-- **Conntrack Session Re-synchronization**: **100,000 sessions synchronized in 0.42 seconds** over dedicated 10GbE link.
-- **Active TCP Stream Disruption**: **0 dropped sessions** (active iperf3 stream preserved across virtual MAC transition).
+# Throughput: iperf3 through the gateway
+ip netns exec sg-wan iperf3 -s &
+ip netns exec sg-lan iperf3 -c 198.51.100.10
 
----
+# Latency: ping through gateway
+ip netns exec sg-lan ping -c 100 198.51.100.10
 
-## 4. Honest Architectural Limitations
+# Teardown
+sudo lab/setup_netns_lab.sh down
+```
 
-1. **ASIC Parity**: SentinelGate utilizes standard x86-64 server CPU cores and commodity SmartNICs. It cannot match proprietary ASIC acceleration (e.g. Fortinet FortiASIC NP7 or CP9) on power-to-throughput efficiency.
-2. **Proprietary Threat Feeds**: Out-of-the-box feeds rely on open threat intelligence (Emerging Threats Open, URLhaus, Feodo, FireHOL). Enterprise commercial feeds require customer-provided subscription keys.
-3. **TLS 1.3 ECH (Encrypted Client Hello)**: When ECH is enabled by a client without an enterprise policy, the forward proxy must drop or reject ECH negotiation to force standard SNI exposure for inspection.
+## Honest Limitations
+
+1. **No ASIC acceleration.** SentinelFW runs on commodity x86-64 CPUs.
+   It cannot match Fortinet FortiASIC NP7/CP9 or Cisco's custom silicon.
+2. **Python sniffer is visibility-only.** Detection runs in Python at ~50 kpps.
+   Enforcement is done by the kernel (nft sets) or, once built, by Suricata/Go.
+3. **No inline forwarding path today.** The gateway daemon (`sentinelgated`) is
+   a skeleton. Packet inspection happens post-capture, not in-path.

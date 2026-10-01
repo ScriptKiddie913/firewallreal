@@ -22,6 +22,10 @@ build-cli: $(BIN_DIR)
 	@echo "==> Building sfw (Unified CLI / TUI)..."
 	go build -trimpath -ldflags="-s -w -X main.Version=3.0.0-dev" -o $(BIN_DIR)/sfw ./cmd/sfw
 
+build-nftcompile: $(BIN_DIR)
+	@echo "==> Building sfw-nftcompile (Declarative Ruleset Compiler)..."
+	go build -trimpath -ldflags="-s -w -X main.Version=3.0.0-dev" -o $(BIN_DIR)/sfw-nftcompile ./cmd/sfw-nftcompile
+
 # --- eBPF Targets ---
 build-bpf:
 	@echo "==> Compiling eBPF / XDP bytecode with Clang..."
@@ -33,8 +37,8 @@ build-bpf:
 test: test-python test-go
 
 test-python:
-	@echo "==> Running SentinelFW Python unit test suites..."
-	python -m unittest discover -s tests -v
+	@echo "==> Running SentinelFW Python unit test suites (pytest)..."
+	pytest tests/ -v
 
 test-go:
 	@echo "==> Running Go unit tests..."
@@ -43,8 +47,8 @@ test-go:
 
 lint:
 	@echo "==> Running code linter checks..."
-	@which go >/dev/null 2>&1 && go vet ./pkg/... ./cmd/... || true
-	python -m unittest discover -s tests -p "test_*.py" >/dev/null
+	@which go >/dev/null 2>&1 && go vet ./pkg/... ./cmd/...
+	python scripts/check_release_hygiene.py
 
 # --- Virtual Lab Automation Targets ---
 lab-up:

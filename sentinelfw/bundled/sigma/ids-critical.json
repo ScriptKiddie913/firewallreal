@@ -1,0 +1,7 @@
+{
+  "id": "sfw-ids-crit-001",
+  "name": "Critical IDS signature hit",
+  "severity": "critical",
+  "action": "block",
+  "selection": {"kind": "ids_signature", "severity": "critical"}
+}

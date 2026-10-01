@@ -1,0 +1,8 @@
+{
+  "id": "sfw-console-001",
+  "name": "Failed console logins",
+  "description": "Console authentication failures (also throttled by the login lockout).",
+  "severity": "medium",
+  "action": "monitor",
+  "selection": {"kind": "login_failed"}
+}

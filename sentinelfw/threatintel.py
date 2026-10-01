@@ -23,7 +23,7 @@ import urllib.request
 from pathlib import Path
 from .common import DATA_DIR, STOP, event
 
-VT_API = "https://www.virustotal.com/api/v3/ip_addresses/{}"
+VT_API_DEFAULT = "https://www.virustotal.com/api/v3/ip_addresses/{}"
 DEFAULTS = {
     "virustotal_api_key": "",
     "auto_scan_new_ips": True,
@@ -56,7 +56,37 @@ class ThreatIntel:
 
     @property
     def api_key(self) -> str:
-        return str(self._opt("virustotal_api_key") or "")
+        k = str(self._opt("virustotal_api_key") or "")
+        if not k:
+            try:
+                from .mgmt import secrets_vault
+                k = str(secrets_vault.get("virustotal_api_key") or "")
+            except Exception:
+                pass
+        return k
+
+    @property
+    def api_url(self) -> str:
+        # overridable for testing / VT proxies
+        return str(self.cfg.get("api_url") or VT_API_DEFAULT)
+
+    def display_record(self, ip: str) -> dict:
+        """Last known VT record for display, regardless of rescan staleness.
+
+        Unlike cached(), a clean record older than clean_rescan_days is still
+        shown (the UI marks it stale); malicious records are permanent anyway.
+        """
+        with self.lock:
+            rec = self._cache.get(ip)
+        if not rec:
+            return {}
+        out = dict(rec)
+        mal = int(rec.get("malicious") or 0)
+        if not mal:
+            age_days = (time.time() - rec.get("ts", 0)) / 86400
+            if age_days >= int(self._opt("clean_rescan_days")):
+                out["stale"] = True
+        return out
 
     def configured(self) -> bool:
         return len(self.api_key) >= 20
@@ -75,6 +105,8 @@ class ThreatIntel:
                         self.cfg[k] = int(kwargs[k])
                     except (TypeError, ValueError):
                         pass
+            if kwargs.get("api_url"):
+                self.cfg["api_url"] = str(kwargs["api_url"]).strip()
             if self.engine is not None and getattr(self.engine, "config_persist", None):
                 try:
                     self.engine.config_persist()
@@ -104,9 +136,10 @@ class ThreatIntel:
             event("vt_cache_save_failed", "low", error=str(e))
 
     # ------------------------------------------------------------ rate limiting
-    def _throttle_ok(self) -> bool:
+    def _throttle_ok(self, interval: float = None) -> bool:
         now = time.time()
-        interval = max(1, int(self._opt("request_interval_seconds")))
+        if interval is None:
+            interval = max(1, int(self._opt("request_interval_seconds")))
         max_hour = max(1, int(self._opt("max_scans_per_hour")))
         self._scan_window = [t for t in self._scan_window if now - t < 3600]
         if now - self._last_query_ts < interval:
@@ -134,11 +167,14 @@ class ThreatIntel:
             return {}  # stale clean record — eligible for a rescan
         return rec
 
-    def lookup(self, ip: str, force: bool = False) -> dict:
+    def lookup(self, ip: str, force: bool = False, manual: bool = False) -> dict:
         """Returns the VT record for an IP, querying the API when needed.
 
         Respects both the permanent-detection rule and the rate limiter;
         when throttled it returns the cached record (or a 'throttled' marker).
+        Manual scans (operator clicked VT SCAN) get priority over the
+        background scanner: they only need a short 4s spacing instead of the
+        full free-tier interval, sharing the same hourly budget.
         """
         cached = self.cached(ip)
         if cached and not force:
@@ -146,7 +182,7 @@ class ThreatIntel:
         if not self.configured():
             return {"error": "no VirusTotal API key configured",
                     "cached": cached or None}
-        if not self._throttle_ok():
+        if not self._throttle_ok(interval=4 if manual else None):
             if cached:
                 return cached
             return {"error": "rate-limited (free tier: 4 queries/minute) — try again shortly",
@@ -160,7 +196,7 @@ class ThreatIntel:
 
     def _query_vt(self, ip: str) -> dict:
         try:
-            req = urllib.request.Request(VT_API.format(ip), headers={
+            req = urllib.request.Request(self.api_url.format(ip), headers={
                 "x-apikey": self.api_key,
                 "accept": "application/json",
                 "User-Agent": "SentinelFW/3",
@@ -193,6 +229,11 @@ class ThreatIntel:
             votes = rec["malicious"] + rec["suspicious"]
             rec["verdict"] = "MALICIOUS" if rec["malicious"] >= int(self._opt("min_malicious_votes")) \
                 else ("SUSPICIOUS" if votes > 0 else "CLEAN")
+            try:
+                from . import vtdb
+                vtdb.save_vt(ip, rec, attrs)  # full report (per-engine results) in SQLite
+            except Exception:
+                pass
             return rec
         except Exception as e:  # noqa: BLE001
             event("vt_parse_error", "low", ip=ip, error=str(e)[:200])

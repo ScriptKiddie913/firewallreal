@@ -194,6 +194,76 @@ class SSHHoneypot(HoneypotService):
                 self.on_session(session)
 
 
+class SSHTarpit(HoneypotService):
+    """A deliberately realistic SSH endpoint that traps automated seeker bots.
+
+    Presents a modern OpenSSH banner after a small (human-plausible) delay,
+    answers the client's banner, then holds the connection open, re-reading
+    at glacial speed — wasting the bot's time while we record its
+    fingerprint. Anything that connects here is by definition probing for
+    SSH on a non-standard port: no legitimate service was published on it.
+    """
+
+    BANNERS = [
+        b"SSH-2.0-OpenSSH_9.6p1 Ubuntu-3ubuntu13.4\r\n",
+        b"SSH-2.0-OpenSSH_8.9p1 Debian-3ubuntu0.10\r\n",
+        b"SSH-2.0-OpenSSH_9.2p1 Debian-2+deb12u2\r\n",
+        b"SSH-2.0-OpenSSH_for_Windows_9.5\r\n",
+    ]
+
+    def __init__(self, port: int = 22222, on_session=None, on_tarpit_hit=None):
+        super().__init__("tarpit", port, on_session)
+        self.on_tarpit_hit = on_tarpit_hit
+        self._banner_idx = 0
+
+    def _handle_client(self, client: socket.socket, addr: tuple):
+        import random
+        src_ip, src_port = addr[0], addr[1]
+        session = HoneypotSession("tarpit", src_ip, src_port)
+        client.settimeout(45.0)
+        try:
+            time.sleep(random.uniform(0.05, 0.4))           # plausible latency
+            banner = self.BANNERS[self._banner_idx % len(self.BANNERS)]
+            self._banner_idx += 1
+            client.sendall(banner)
+            client_banner = b""
+            try:
+                client_banner = client.recv(1024)           # e.g. "SSH-2.0-libssh_0.9.6"
+            except Exception:
+                pass
+            if client_banner:
+                session.commands.append(client_banner.decode(errors="ignore").strip())
+            event("tarpit_ssh_seeker", "warning", src=src_ip, port=self.port,
+                  client_banner=(client_banner or b"").decode(errors="ignore").strip()[:120])
+            if self.on_tarpit_hit:
+                try:
+                    self.on_tarpit_hit(src_ip, (client_banner or b"").decode(errors="ignore").strip()[:120])
+                except Exception:
+                    pass
+            # hold the line open (tarpit); dribble to keep state machines happy
+            deadline = time.time() + random.uniform(20, 60)
+            while time.time() < deadline:
+                try:
+                    chunk = client.recv(512)
+                    if not chunk:
+                        break
+                    if len(session.commands) < 12:
+                        session.commands.append(chunk.decode(errors="ignore").strip()[:200])
+                    time.sleep(random.uniform(1.5, 4.0))    # agonizingly slow
+                except (socket.timeout, OSError):
+                    break
+        except Exception:
+            pass
+        finally:
+            try:
+                client.close()
+            except Exception:
+                pass
+            session.end_time = time.time()
+            if self.on_session:
+                self.on_session(session)
+
+
 class FTPHoneypot(HoneypotService):
     """Emulates a vsftpd server and captures cleartext authentication credentials."""
 
@@ -422,6 +492,7 @@ class SMTPHoneypot(HoneypotService):
 # ---------------------------------------------------------------------------
 
 SERVICE_CLASSES = {
+    "tarpit": (SSHTarpit, 22222),
     "http": (HTTPHoneypot, 8080),
     "ssh": (SSHHoneypot, 2222),
     "ftp": (FTPHoneypot, 2121),
@@ -440,25 +511,49 @@ class HoneypotManager:
     stop_service(); configuration changes persist into the engine config dict.
     """
 
-    def __init__(self, cfg=None, config_persist=None):
+    def __init__(self, cfg=None, config_persist=None, on_tarpit_hit=None):
         self.cfg = cfg or {}
         self._persist = config_persist  # callable(cfg) to save config, optional
+        self.on_tarpit_hit = on_tarpit_hit  # engine callback: (ip, banner)
         h_cfg = self.cfg.get("honeypot", {})
         self.enabled = h_cfg.get("enabled", True)
         self.services_cfg = h_cfg.get("services", {})
         self.services: Dict[str, HoneypotService] = {}
         self.sessions: List[dict] = []
+        self.tarpit_hits: Dict[str, dict] = {}   # ip -> {count, last, banner}
         self._lock = threading.RLock()
 
-    def _on_session(self, sess: HoneypotSession):
+    def _on_tarpit_session(self, sess: dict):
+        """Aggregate tarpit visitors into the seeker-bot registry."""
         with self._lock:
-            self.sessions.append(sess.to_dict())
+            e = self.tarpit_hits.setdefault(sess.get("src_ip", "?"),
+                                            {"count": 0, "first": sess.get("start_time"),
+                                             "last": 0, "banner": ""})
+            e["count"] += 1
+            e["last"] = sess.get("end_time") or time.time()
+            cmds = sess.get("commands") or []
+            if cmds and not e["banner"]:
+                e["banner"] = str(cmds[0])[:120]
+
+    def _on_session(self, sess: HoneypotSession):
+        d = sess.to_dict()
+        with self._lock:
+            self.sessions.append(d)
             if len(self.sessions) > 1000:
                 self.sessions.pop(0)
+        if d.get("service") == "tarpit":
+            self._on_tarpit_session(d)
+
+    def tarpit_visitors(self) -> List[dict]:
+        """Unique seeker-bot IPs seen on the tarpit, most recent first."""
+        with self._lock:
+            rows = [{"ip": ip, **v} for ip, v in self.tarpit_hits.items()]
+        rows.sort(key=lambda r: r.get("last") or 0, reverse=True)
+        return rows
 
     # -- service lifecycle ---------------------------------------------------
     def _service_cfg(self, name: str) -> dict:
-        defaults = {"enabled": name in ("ssh", "http", "ftp", "telnet")}
+        defaults = {"enabled": name in ("ssh", "http", "ftp", "telnet", "tarpit")}
         defaults.update(self.services_cfg.get(name, {}))
         return defaults
 
@@ -482,6 +577,7 @@ class HoneypotManager:
         """
         if name not in SERVICE_CLASSES:
             return {"error": f"unknown service '{name}'"}
+        extra = {"on_tarpit_hit": self.on_tarpit_hit} if name == "tarpit" else {}
         with self._lock:
             existing = self.services.get(name)
             if existing and existing.is_alive() and existing.running:
@@ -502,7 +598,7 @@ class HoneypotManager:
             srv = None
             last_err = ""
             for idx, use_port in enumerate(candidates):
-                srv = cls(port=use_port, on_session=self._on_session)
+                srv = cls(port=use_port, on_session=self._on_session, **extra)
                 srv.start()
                 # wait until the bind either succeeds (running) or fails (bind_error / thread death)
                 deadline = time.time() + 1.5

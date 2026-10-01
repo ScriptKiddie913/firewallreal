@@ -6,7 +6,7 @@ and dynamically escalates defensive actions as attackers progress through phases
 import collections
 import threading
 import time
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Union
 from .attack_classifier import AttackEvent
 from .common import event
 
@@ -83,8 +83,14 @@ class AttackCampaign:
 class KillChainTracker:
     """Aggregates security events and manages multi-stage threat campaigns."""
 
-    def __init__(self, window_seconds: int = 1800, engine=None):
-        self.window_seconds = window_seconds
+    def __init__(self, window_seconds: Optional[Union[dict, int]] = 1800, engine=None, **kwargs):
+        if isinstance(window_seconds, dict):
+            self.window_seconds = int(window_seconds.get("killchain", {}).get("window_seconds") or
+                                      window_seconds.get("window_seconds") or 1800)
+            if engine is None and "engine" in window_seconds:
+                engine = window_seconds["engine"]
+        else:
+            self.window_seconds = int(window_seconds if window_seconds is not None else (kwargs.get("window_seconds_or_cfg") or 1800))
         self.engine = engine
         self._lock = threading.RLock()
         self._campaigns: Dict[str, AttackCampaign] = {}
@@ -139,3 +145,29 @@ class KillChainTracker:
     def get_all_campaigns(self) -> List[dict]:
         with self._lock:
             return [c.to_dict() for c in self._campaigns.values()]
+
+    def export_mermaid(self, source_ip: str = "") -> str:
+        """Exports the cyber kill chain progression as a standard Mermaid flowchart."""
+        lines = [
+            "graph LR",
+            "    classDef reached fill:#cf1322,stroke:#ff4d4f,color:#ffffff,stroke-width:2px;",
+            "    classDef pending fill:#1f1f1f,stroke:#434343,color:#8c8c8c;",
+        ]
+        camp = self.get_campaign(source_ip) if source_ip else None
+        reached_stages = set(camp.get("stages_reached", [])) if camp else set()
+
+        for idx, stage in enumerate(KILL_CHAIN_STAGES):
+            sid = f"S{idx}"
+            sname = stage.replace("_", " ").title()
+            lines.append(f'    {sid}["{sname}"]')
+            if stage in reached_stages:
+                lines.append(f"    class {sid} reached;")
+            else:
+                lines.append(f"    class {sid} pending;")
+
+            if idx > 0:
+                prev_sid = f"S{idx-1}"
+                lines.append(f"    {prev_sid} --> {sid}")
+
+        return "\n".join(lines) + "\n"
+

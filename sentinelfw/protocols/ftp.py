@@ -1,16 +1,36 @@
-"""SentinelFW Deep FTP Protocol Inspector.
-
-Analyzes cleartext FTP command streams, identifies bounce attacks, traversal attempts,
-command injection, and harvests credentials for threat correlation.
-"""
+import collections
 import re
+import threading
+import time
 from typing import Dict, List, Optional, Tuple
 
 PORT_CMD_REGEX = re.compile(r"^PORT\s+(\d+),(\d+),(\d+),(\d+),(\d+),(\d+)", re.IGNORECASE)
+SENSITIVE_FILES = re.compile(r"(?i)\b(?:passwd|shadow|\.env|id_rsa|id_dsa|id_ecdsa|web\.config|config\.php|\.git|wp-config\.php)\b")
 
 
 class FTPInspector:
     """Inspects FTP client and server communications."""
+
+    _login_lock = threading.Lock()
+    _login_attempts: Dict[str, List[float]] = collections.defaultdict(list)
+
+    @classmethod
+    def record_login_attempt(cls, client_ip: str, window_seconds: float = 60.0,
+                             threshold: int = 5) -> Optional[dict]:
+        """Tracks FTP authentication frequency and flags brute force spikes."""
+        now = time.time()
+        with cls._login_lock:
+            attempts = [t for t in cls._login_attempts[client_ip] if now - t <= window_seconds]
+            attempts.append(now)
+            cls._login_attempts[client_ip] = attempts
+            if len(attempts) >= threshold:
+                return {
+                    "client_ip": client_ip,
+                    "attempts": len(attempts),
+                    "window_seconds": window_seconds,
+                    "threat": "ftp_brute_force"
+                }
+        return None
 
     @classmethod
     def inspect_command(cls, line: str, client_ip: str = "") -> Tuple[Optional[str], dict]:
@@ -40,7 +60,12 @@ class FTPInspector:
             if "../" in arg or "..\\" in arg or "%2e%2e" in arg.lower():
                 return "ftp_traversal", {"verb": verb, "path": arg}
 
-        # 3. Command Injection in Filename
+        # 3. Sensitive File Exfiltration Check
+        if verb in ("RETR", "STOR"):
+            if SENSITIVE_FILES.search(arg):
+                return "ftp_sensitive_file", {"verb": verb, "path": arg}
+
+        # 4. Command Injection in Filename
         if verb in ("RETR", "STOR", "APPE"):
             if any(ch in arg for ch in (";", "|", "&", "`", "$")):
                 return "ftp_command_injection", {"verb": verb, "filename": arg}

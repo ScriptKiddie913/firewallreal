@@ -12,6 +12,7 @@ import time
 from typing import Dict, List, Optional
 import urllib.parse
 import urllib.request
+import urllib.error
 
 from .common import STOP
 
@@ -105,11 +106,28 @@ class TelegramNotifier:
             else:
                 text = self.format_event(item)
 
-            success = self._send_api(self.bot_token, self.chat_id, text)
+            success, err_code = self._send_api(self.bot_token, self.chat_id, text)
             if success:
                 self._sent_in_window += 1
+                self._consecutive_failures = 0
             else:
-                time.sleep(2.0)
+                if err_code == "invalid_credentials":
+                    with self._lock:
+                        self.enabled = False
+                    # Drain queue to prevent memory leak and spam
+                    while not self._queue.empty():
+                        try:
+                            self._queue.get_nowait()
+                        except queue.Empty:
+                            break
+                    logger.warning(
+                        "Telegram Bot auto-paused: BotFather token is invalid or expired (HTTP 404/401). "
+                        "Update credentials in Settings -> Telegram to resume alerts."
+                    )
+                else:
+                    self._consecutive_failures = getattr(self, "_consecutive_failures", 0) + 1
+                    backoff = min(60.0, 2.0 * (1.5 ** min(self._consecutive_failures, 8)))
+                    time.sleep(backoff)
 
     def format_event(self, event: dict) -> str:
         """Formats security event into clean professional text without emojis."""
@@ -156,8 +174,8 @@ class TelegramNotifier:
         return "\n".join(lines)
 
     @staticmethod
-    def _send_api(bot_token: str, chat_id: str, text: str) -> bool:
-        """Direct call to Telegram Bot API sendMessage."""
+    def _send_api(bot_token: str, chat_id: str, text: str) -> tuple:
+        """Direct call to Telegram Bot API sendMessage. Returns (success: bool, err_code: str)."""
         url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
         payload = {
             "chat_id": chat_id,
@@ -173,10 +191,15 @@ class TelegramNotifier:
                 method="POST"
             )
             with urllib.request.urlopen(req, timeout=8.0) as resp:
-                return resp.status == 200
+                return (resp.status == 200, "")
+        except urllib.error.HTTPError as e:
+            if e.code in (401, 404):
+                return (False, "invalid_credentials")
+            logger.debug("Telegram API HTTP error %d: %s", e.code, e.reason)
+            return (False, f"http_{e.code}")
         except Exception as e:
-            logger.error("Failed to send Telegram alert: %s", e)
-            return False
+            logger.debug("Failed to send Telegram alert: %s", e)
+            return (False, "network_error")
 
     @staticmethod
     def send_test_message(bot_token: str, chat_id: str) -> Dict[str, any]:
