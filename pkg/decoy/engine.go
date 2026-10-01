@@ -2,8 +2,6 @@
 package decoy
 
 import (
-	"fmt"
-	"net"
 	"strings"
 	"sync"
 	"time"

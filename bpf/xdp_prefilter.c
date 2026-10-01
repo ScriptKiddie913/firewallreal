@@ -9,6 +9,7 @@
 #include <linux/ip.h>
 #include <linux/tcp.h>
 #include <linux/in.h>
+#include <bpf/bpf_helpers.h>
 
 #ifndef SEC
 #define SEC(NAME) __attribute__((section(NAME), used))

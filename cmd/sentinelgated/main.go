@@ -151,8 +151,11 @@ func main() {
 	sdwanMgr.StartProbes(ctx)
 
 	// 7. Initialize DNS and DHCP Services
-	dnsdhcp := dnsfilter.NewDNSDHCPManager()
-	log.Printf("[INFO] DNS and DHCP subsystem initialized: %v", dnsdhcp != nil)
+	dnsDHCPReady := true
+	if len(cfg.DHCP) > 0 {
+		_ = dnsfilter.GenerateDnsmasqDHCP(&cfg)
+	}
+	log.Printf("[INFO] DNS and DHCP subsystem initialized: %v", dnsDHCPReady)
 
 	// 8. Initialize WireGuard VPN Subsystem
 	if *enableVPN {
@@ -181,7 +184,7 @@ func main() {
 			"version":    Version,
 			"ha_role":    haMgr.GetRole(),
 			"policies":   len(cfg.Policies),
-			"dns_dhcp":   dnsdhcp != nil,
+			"dns_dhcp":   dnsDHCPReady,
 			"tls_proxy":  *enableTLSProxy,
 			"uptime_sec": time.Since(startTime).Seconds(),
 		})
